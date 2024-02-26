@@ -1,0 +1,22 @@
+plugins { id 'java-library' }
+repositories {
+    ivy {
+        //https://github.com/defold/defold/releases/download/1.6.4/bob.jar
+        url "https://github.com"
+        patternLayout { artifact "/[organisation]/[module]/releases/download/[revision]/[classifier].[ext]" }
+        metadataSources { artifact() }
+        content { includeModule("defold", "defold") }
+    }
+}
+
+dependencies {
+    // Release
+    // compileOnly 'defold:defold:1.6.4:bob@jar'
+
+    // Dev
+    compileOnly files("../defold/com.dynamo.cr/com.dynamo.cr.bob/dist/bob.jar")
+}
+
+tasks.withType(Jar) {
+    destinationDirectory = new File("$rootDir/teal/plugins/share")
+}

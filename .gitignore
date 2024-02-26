@@ -1,0 +1,17 @@
+/.internal
+/build
+/.gradle
+/.idea
+.externalToolBuilders
+.DS_Store
+Thumbs.db
+.lock-wscript
+*.pyc
+.project
+.cproject
+builtins
+_site
+bob.jar
+*.interp
+*.tokens
+*.class

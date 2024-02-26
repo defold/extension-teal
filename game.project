@@ -1,0 +1,12 @@
+[project]
+title = Teal
+
+[library]
+include_dirs = teal
+
+[bootstrap]
+main_collection = /main/main.collectionc
+
+[input]
+game_binding = /builtins/input/all.input_bindingc
+
