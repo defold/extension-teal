@@ -11,6 +11,24 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class TealTranspiler implements ILuaTranspiler {
+
+    // Match severity and resource path from strings like:
+    //       Warn 2 warnings in main/foo bar.tl
+    //      Error 2 type errors in main/baz.tl
+    public static final Pattern SEVERITY_AND_PATH = Pattern.compile("^\\s*\\w*\\s*\\d+.+(warning|error)s? in (.+)$");
+    // Find line number in strings like:
+    //        ...    1 | local not_an_int: int = "asd"
+    //        ...    9 | local py = "1";
+    public static final Pattern LINE = Pattern.compile("^\\s*\\.{3}\\s*(\\d+)\\s*\\|");
+    // Match line that highlights the issue in a line above like:
+    //        ...      |       ^^
+    //        ...      |       ^^^^^
+    public static final Pattern ERROR_UNDERLINE = Pattern.compile("^\\s*\\.{3}\\s*\\|\\s*\\^+\\s*$");
+    // Match issue message like:
+    //        ...      | unknown type int
+    //        ...      | in local declaration: foo: expected an array: at index 2: got integer, expected string
+    public static final Pattern MESSAGE = Pattern.compile("^\\s*\\.{3}\\s*\\|\\s*(.+)$");
+
     @Override
     public String getBuildFileResourcePath() {
         return "/tlconfig.lua";
@@ -21,41 +39,44 @@ public class TealTranspiler implements ILuaTranspiler {
         return "tl";
     }
 
-    // 1 warning:
-    // 2 warnings:
-    private static final Predicate<String> IS_WARNING = Pattern.compile("^\\d+.+warnings?:").asMatchPredicate();
-
-    // 1 error:
-    // 4 errors:
-    // 2 syntax errors:
-    private static final Predicate<String> IS_ERROR = Pattern.compile("^\\d+.+errors?:").asMatchPredicate();
-
-    // foo.tl:10:1: unused variable x: integer
-    private static final Pattern ISSUE = Pattern.compile("^(.+):(\\d+):\\d+: (.+)$");
-
     @Override
-    public List<Issue> transpile(File sourceDir, File outputDir) throws Exception {
-        // TODO: so far, we rely on a globally installed tl executable. We want to bundle it as a plugin!
-        Process process = new ProcessBuilder("tl", "build",
-                "--source-dir", sourceDir.toString(),
-                "--build-dir", outputDir.toString()).start();
+    public List<Issue> transpile(File pluginDir, File sourceDir, File outputDir) throws Exception {
+        // TODO: so far, we rely on a globally installed cyan executable. We want to bundle it as a plugin and use
+        //       from pluginDir!
+        Process process = new ProcessBuilder(
+                "cyan", "build", "--build-dir", outputDir.toString(), "--prune")
+                .directory(sourceDir)
+                .redirectErrorStream(true)
+                .start();
         List<Issue> result = new ArrayList<>();
         try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line = r.readLine();
             Severity severity = null;
+            int issueLine = 0;
+            String resourcePath = null;
             while (line != null) {
-                if (IS_WARNING.test(line)) {
-                    severity = Severity.WARNING;
-                } else if (IS_ERROR.test(line)) {
-                    severity = Severity.ERROR;
-                } else if (severity != null) {
-                    Matcher matcher = ISSUE.matcher(line);
-                    if (matcher.matches()) {
-                        result.add(new Issue(
-                                severity,
-                                "/" + matcher.group(1),
-                                Integer.parseInt(matcher.group(2)),
-                                matcher.group(3)));
+                Matcher severityAndPathMatcher = SEVERITY_AND_PATH.matcher(line);
+                if (severityAndPathMatcher.matches()) {
+                    severity = severityAndPathMatcher.group(1).equals("warning") ? Severity.WARNING : Severity.ERROR;
+                    resourcePath = "/" + severityAndPathMatcher.group(2);
+                } else {
+                    Matcher lineMatcher = LINE.matcher(line);
+                    if (lineMatcher.find()) {
+                        issueLine = Integer.parseInt(lineMatcher.group(1));
+                    } else {
+                        if (!ERROR_UNDERLINE.matcher(line).matches()) {
+                            Matcher messageMatcher = MESSAGE.matcher(line);
+                            if (messageMatcher.matches()) {
+                                result.add(new Issue(
+                                        severity,
+                                        resourcePath,
+                                        issueLine,
+                                        messageMatcher.group(1)
+                                ));
+                                resourcePath = null;
+                                issueLine = 0;
+                            }
+                        }
                     }
                 }
                 line = r.readLine();
