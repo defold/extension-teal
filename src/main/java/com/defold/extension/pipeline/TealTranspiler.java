@@ -73,7 +73,6 @@ public class TealTranspiler implements ILuaTranspiler {
                                         issueLine,
                                         messageMatcher.group(1)
                                 ));
-                                resourcePath = null;
                                 issueLine = 0;
                             }
                         }
