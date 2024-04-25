@@ -1,5 +1,7 @@
 package com.defold.extension.pipeline;
 
+import com.dynamo.bob.Platform;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -41,11 +43,10 @@ public class TealTranspiler implements ILuaTranspiler {
 
     @Override
     public List<Issue> transpile(File pluginDir, File sourceDir, File outputDir) throws Exception {
-        // TODO: so far, we rely on a globally installed cyan executable. We want to bundle it as a plugin and use
-        //       from pluginDir!
-        // build/plugins/teal/plugins/bin/arm64-macos/bin/cyan
+        Platform platform = Platform.getHostPlatform();
+        String cmd = new File(pluginDir, "teal/plugins/bin/" + platform.getPair() + "/bin/cyan" + platform.getExeSuffixes()[0]).toString();
         Process process = new ProcessBuilder(
-                "cyan", "build", "--build-dir", outputDir.toString(), "--prune")
+                cmd, "build", "--build-dir", outputDir.toString(), "--prune")
                 .directory(sourceDir)
                 .redirectErrorStream(true)
                 .start();
