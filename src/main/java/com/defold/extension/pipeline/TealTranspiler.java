@@ -43,6 +43,7 @@ public class TealTranspiler implements ILuaTranspiler {
     public List<Issue> transpile(File pluginDir, File sourceDir, File outputDir) throws Exception {
         // TODO: so far, we rely on a globally installed cyan executable. We want to bundle it as a plugin and use
         //       from pluginDir!
+        // build/plugins/teal/plugins/bin/arm64-macos/bin/cyan
         Process process = new ProcessBuilder(
                 "cyan", "build", "--build-dir", outputDir.toString(), "--prune")
                 .directory(sourceDir)
