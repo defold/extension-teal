@@ -15,4 +15,3 @@ bob.jar
 *.interp
 *.tokens
 *.class
-/arm64-macos
