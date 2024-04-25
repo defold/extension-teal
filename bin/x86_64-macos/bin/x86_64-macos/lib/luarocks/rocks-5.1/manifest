@@ -1,0 +1,370 @@
+commands = {
+   cyan = {
+      "cyan/0.3.0-1"
+   },
+   tl = {
+      "tl/0.15.3-1"
+   }
+}
+dependencies = {
+   argparse = {
+      ["0.7.1-1"] = {
+         {
+            constraints = {
+               {
+                  op = ">=",
+                  version = {
+                     5, 1, string = "5.1"
+                  }
+               },
+               {
+                  op = "<",
+                  version = {
+                     5, 5, string = "5.5"
+                  }
+               }
+            },
+            name = "lua"
+         }
+      }
+   },
+   compat53 = {
+      ["0.13-1"] = {
+         {
+            constraints = {
+               {
+                  op = ">=",
+                  version = {
+                     5, 1, string = "5.1"
+                  }
+               },
+               {
+                  op = "<",
+                  version = {
+                     5, 5, string = "5.5"
+                  }
+               }
+            },
+            name = "lua"
+         }
+      }
+   },
+   cyan = {
+      ["0.3.0-1"] = {
+         {
+            constraints = {},
+            name = "argparse"
+         },
+         {
+            constraints = {},
+            name = "luafilesystem"
+         },
+         {
+            constraints = {},
+            name = "tl"
+         }
+      }
+   },
+   luafilesystem = {
+      ["1.8.0-1"] = {
+         {
+            constraints = {
+               {
+                  op = ">=",
+                  version = {
+                     5, 1, string = "5.1"
+                  }
+               }
+            },
+            name = "lua"
+         }
+      }
+   },
+   tl = {
+      ["0.15.3-1"] = {
+         {
+            constraints = {
+               {
+                  op = ">=",
+                  version = {
+                     0, 11, string = "0.11"
+                  }
+               }
+            },
+            name = "compat53"
+         },
+         {
+            constraints = {},
+            name = "argparse"
+         },
+         {
+            constraints = {},
+            name = "luafilesystem"
+         }
+      }
+   }
+}
+modules = {
+   argparse = {
+      "argparse/0.7.1-1"
+   },
+   ["compat53.init"] = {
+      "compat53/0.13-1"
+   },
+   ["compat53.io"] = {
+      "compat53/0.13-1"
+   },
+   ["compat53.module"] = {
+      "compat53/0.13-1"
+   },
+   ["compat53.string"] = {
+      "compat53/0.13-1"
+   },
+   ["compat53.table"] = {
+      "compat53/0.13-1"
+   },
+   ["compat53.utf8"] = {
+      "compat53/0.13-1"
+   },
+   ["cyan.ansi"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.cli"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.colorstring"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.command"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.commands.build"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.commands.check-gen"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.commands.initialize"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.commands.run"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.commands.warnings"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.config"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.fs.init"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.fs.path"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.graph"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.log"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.meta"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.sandbox"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.script"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.tlcommon"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan.util"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/ansi.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/cli.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/colorstring.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/command.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/commands/build.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/commands/check-gen.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/commands/initialize.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/commands/run.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/commands/warnings.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/config.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/fs/init.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/fs/path.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/graph.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/log.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/meta.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/sandbox.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/script.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/tlcommon.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   ["cyan/util.tl"] = {
+      "cyan/0.3.0-1"
+   },
+   lfs = {
+      "luafilesystem/1.8.0-1"
+   },
+   tl = {
+      "tl/0.15.3-1"
+   },
+   ["tl.tl"] = {
+      "tl/0.15.3-1"
+   }
+}
+repository = {
+   argparse = {
+      ["0.7.1-1"] = {
+         {
+            arch = "installed",
+            commands = {},
+            dependencies = {},
+            modules = {
+               argparse = "argparse.lua"
+            }
+         }
+      }
+   },
+   compat53 = {
+      ["0.13-1"] = {
+         {
+            arch = "installed",
+            commands = {},
+            dependencies = {},
+            modules = {
+               ["compat53.init"] = "compat53/init.lua",
+               ["compat53.io"] = "compat53/io.so",
+               ["compat53.module"] = "compat53/module.lua",
+               ["compat53.string"] = "compat53/string.so",
+               ["compat53.table"] = "compat53/table.so",
+               ["compat53.utf8"] = "compat53/utf8.so"
+            }
+         }
+      }
+   },
+   cyan = {
+      ["0.3.0-1"] = {
+         {
+            arch = "installed",
+            commands = {
+               cyan = "cyan"
+            },
+            dependencies = {
+               argparse = "0.7.1-1",
+               compat53 = "0.13-1",
+               luafilesystem = "1.8.0-1",
+               tl = "0.15.3-1"
+            },
+            modules = {
+               ["cyan.ansi"] = "cyan/ansi.lua",
+               ["cyan.cli"] = "cyan/cli.lua",
+               ["cyan.colorstring"] = "cyan/colorstring.lua",
+               ["cyan.command"] = "cyan/command.lua",
+               ["cyan.commands.build"] = "cyan/commands/build.lua",
+               ["cyan.commands.check-gen"] = "cyan/commands/check-gen.lua",
+               ["cyan.commands.initialize"] = "cyan/commands/initialize.lua",
+               ["cyan.commands.run"] = "cyan/commands/run.lua",
+               ["cyan.commands.warnings"] = "cyan/commands/warnings.lua",
+               ["cyan.config"] = "cyan/config.lua",
+               ["cyan.fs.init"] = "cyan/fs/init.lua",
+               ["cyan.fs.path"] = "cyan/fs/path.lua",
+               ["cyan.graph"] = "cyan/graph.lua",
+               ["cyan.log"] = "cyan/log.lua",
+               ["cyan.meta"] = "cyan/meta.lua",
+               ["cyan.sandbox"] = "cyan/sandbox.lua",
+               ["cyan.script"] = "cyan/script.lua",
+               ["cyan.tlcommon"] = "cyan/tlcommon.lua",
+               ["cyan.util"] = "cyan/util.lua",
+               ["cyan/ansi.tl"] = "cyan/ansi.tl",
+               ["cyan/cli.tl"] = "cyan/cli.tl",
+               ["cyan/colorstring.tl"] = "cyan/colorstring.tl",
+               ["cyan/command.tl"] = "cyan/command.tl",
+               ["cyan/commands/build.tl"] = "cyan/commands/build.tl",
+               ["cyan/commands/check-gen.tl"] = "cyan/commands/check-gen.tl",
+               ["cyan/commands/initialize.tl"] = "cyan/commands/initialize.tl",
+               ["cyan/commands/run.tl"] = "cyan/commands/run.tl",
+               ["cyan/commands/warnings.tl"] = "cyan/commands/warnings.tl",
+               ["cyan/config.tl"] = "cyan/config.tl",
+               ["cyan/fs/init.tl"] = "cyan/fs/init.tl",
+               ["cyan/fs/path.tl"] = "cyan/fs/path.tl",
+               ["cyan/graph.tl"] = "cyan/graph.tl",
+               ["cyan/log.tl"] = "cyan/log.tl",
+               ["cyan/meta.tl"] = "cyan/meta.tl",
+               ["cyan/sandbox.tl"] = "cyan/sandbox.tl",
+               ["cyan/script.tl"] = "cyan/script.tl",
+               ["cyan/tlcommon.tl"] = "cyan/tlcommon.tl",
+               ["cyan/util.tl"] = "cyan/util.tl"
+            }
+         }
+      }
+   },
+   luafilesystem = {
+      ["1.8.0-1"] = {
+         {
+            arch = "installed",
+            commands = {},
+            dependencies = {},
+            modules = {
+               lfs = "lfs.so"
+            }
+         }
+      }
+   },
+   tl = {
+      ["0.15.3-1"] = {
+         {
+            arch = "installed",
+            commands = {
+               tl = "tl"
+            },
+            dependencies = {
+               argparse = "0.7.1-1",
+               compat53 = "0.13-1",
+               luafilesystem = "1.8.0-1"
+            },
+            modules = {
+               tl = "tl.lua",
+               ["tl.tl"] = "tl.tl"
+            }
+         }
+      }
+   }
+}
