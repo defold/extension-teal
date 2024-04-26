@@ -1,3 +1,4 @@
 #!/bin/sh
 
-LUAROCKS_SYSCONFDIR='/Users/runner/work/cyan-builder/cyan-builder/.luarocks/etc/luarocks' exec '/Users/runner/work/cyan-builder/cyan-builder/.lua/bin/lua' -e 'package.path="/Users/runner/work/cyan-builder/cyan-builder/.luarocks/share/lua/5.1/?.lua;/Users/runner/work/cyan-builder/cyan-builder/.luarocks/share/lua/5.1/?/init.lua;"..package.path;package.cpath="/Users/runner/work/cyan-builder/cyan-builder/.luarocks/lib/lua/5.1/?.so;"..package.cpath;local k,l,_=pcall(require,"luarocks.loader") _=k and l.add_context("cyan","0.3.0-1")' '/Users/runner/work/cyan-builder/cyan-builder/.luarocks/lib/luarocks/rocks-5.1/cyan/0.3.0-1/bin/cyan' "$@"
+SCRIPT_DIR="$(dirname -- "$(readlink -f -- "$0")")/.."
+LUAROCKS_SYSCONFDIR="$SCRIPT_DIR/etc/luarocks" exec "$SCRIPT_DIR/bin/luajit-64" -e "package.path=\"$SCRIPT_DIR/share/lua/5.1/?.lua;$SCRIPT_DIR/share/lua/5.1/?/init.lua;\"..package.path;package.cpath=\"$SCRIPT_DIR/lib/lua/5.1/?.so;\"..package.cpath;local k,l,_=pcall(require,\"luarocks.loader\") _=k and l.add_context(\"cyan\",\"0.3.0-1\")" "$SCRIPT_DIR/lib/luarocks/rocks-5.1/cyan/0.3.0-1/bin/cyan" "$@"
