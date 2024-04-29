@@ -2,6 +2,26 @@
 
 set -o errexit
 
+rm -r bin
+
+mkdir -p bin/arm64-macos/bin/arm64-macos
+mkdir -p bin/x86_64-macos/bin/x86_64-macos
+mkdir -p bin/x86_64-linux/bin/x86_64-linux
+mkdir -p bin/x86_64-win32/bin/x86_64-win32
+
+unzip -o -q macOS-ARM64-cyan.zip -d bin/arm64-macos/bin/arm64-macos
+unzip -o -q macOS-X64-cyan.zip -d bin/x86_64-macos/bin/x86_64-macos
+unzip -o -q Linux-X64-cyan.zip -d bin/x86_64-linux/bin/x86_64-linux
+unzip -o -q Windows-X64-cyan.zip -d bin/x86_64-win32/bin/x86_64-win32
+
+# Windows-X64-cyan.zip
+
+find bin -type f -name "*.tl" -delete
+
+cp cyan bin/arm64-macos/bin/arm64-macos/bin
+cp cyan bin/x86_64-macos/bin/x86_64-macos/bin
+cp cyan bin/x86_64-linux/bin/x86_64-linux/bin
+
 cp ../defold/com.dynamo.cr/com.dynamo.cr.bob/libexec/arm64-macos/luajit-64 bin/arm64-macos/bin/arm64-macos/bin
 cp ../defold/com.dynamo.cr/com.dynamo.cr.bob/libexec/x86_64-macos/luajit-64 bin/x86_64-macos/bin/x86_64-macos/bin
 cp ../defold/com.dynamo.cr/com.dynamo.cr.bob/libexec/x86_64-linux/luajit-64 bin/x86_64-linux/bin/x86_64-linux/bin
