@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,12 +50,14 @@ public class TealTranspiler implements ILuaTranspiler {
                 .redirectErrorStream(true)
                 .start();
         List<Issue> result = new ArrayList<>();
+        List<String> lines = new ArrayList<>();
         try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line = r.readLine();
             Severity severity = null;
             int issueLine = 0;
             String resourcePath = null;
             while (line != null) {
+                lines.add(line);
                 Matcher severityAndPathMatcher = SEVERITY_AND_PATH.matcher(line);
                 if (severityAndPathMatcher.matches()) {
                     severity = severityAndPathMatcher.group(1).equals("warning") ? Severity.WARNING : Severity.ERROR;
@@ -91,7 +92,7 @@ public class TealTranspiler implements ILuaTranspiler {
                     Severity.ERROR,
                     getBuildFileResourcePath(),
                     1,
-                    "Compilation failed: " + exitCode + " exit code"));
+                    String.join("\n", lines)));
         }
         return result;
     }
