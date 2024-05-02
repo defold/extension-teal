@@ -2,7 +2,7 @@
 
 set -o errexit
 
-wget -q https://github.com/defold/lua-language-server/releases/download/v0.0.5/release.zip
+wget -q https://github.com/defold/lua-language-server/releases/download/v0.0.6/release.zip
 
 mkdir -p dist
 unzip -o -q release.zip "lsp-lua-language-server/plugins/*.zip" -d dist
