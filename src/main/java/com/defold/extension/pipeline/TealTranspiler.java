@@ -43,7 +43,8 @@ public class TealTranspiler implements ILuaTranspiler {
     @Override
     public List<Issue> transpile(File pluginDir, File sourceDir, File outputDir) throws Exception {
         Platform platform = Platform.getHostPlatform();
-        String cmd = new File(pluginDir, "teal/plugins/bin/" + platform.getPair() + "/bin/cyan" + platform.getExeSuffixes()[0]).toString();
+        String exeSuffix = "win32".equals(platform.getOs()) ? ".bat" : "";
+        String cmd = new File(pluginDir, "teal/plugins/bin/" + platform.getPair() + "/bin/cyan" + exeSuffix).toString();
         Process process = new ProcessBuilder(
                 cmd, "build", "--build-dir", outputDir.toString(), "--prune")
                 .directory(sourceDir)
