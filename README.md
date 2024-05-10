@@ -1,4 +1,4 @@
-# Using [Teal](https://github.com/teal-language/tl) in your project
+# Using [Teal](https://github.com/teal-language/tl) in your project (Defold 1.8.1+)
 
 1. Add a dependency on a latest release of this extension: https://github.com/defold/extension-teal/tags
    
