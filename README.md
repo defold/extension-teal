@@ -1,4 +1,4 @@
-# Using Teal in your project
+# Using [Teal](https://github.com/teal-language/tl) in your project
 
 1. Add a dependency on a latest release of this extension: https://github.com/defold/extension-teal/tags
    
@@ -13,7 +13,7 @@
    ```
 3. Create `.tl` files — those can be required from scripts and lua modules as if they were `.lua` files 
 
-# Developing the extension
+# Developing this extension
 
 If you modify teal executable, re-assemble the bin zips:
 ```shell
