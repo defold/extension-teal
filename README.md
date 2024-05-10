@@ -24,7 +24,7 @@
 ## Hello world
 
 With Teal extension added to the project dependency list and `/tlconfig.lua` file in the project root, we can start using 
-teal. Assuming you are using an empty project template to try it out, here is how you can give it a try:
+teal. Assuming you are using an empty project template to try it out, here is how you can start using it:
 
 1. Create a file in the `main` folder and name it `greeter.tl`, then write the following code:
    ```teal
