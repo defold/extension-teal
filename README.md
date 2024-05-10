@@ -17,7 +17,7 @@
 	    include = {"**/*.tl"}
    }
    ```
-4Create `.tl` files — those can be required from scripts and lua modules as if they were `.lua` files 
+4. Create `.tl` files — those can be required from scripts and lua modules as if they were `.lua` files 
 
 # Examples
 
