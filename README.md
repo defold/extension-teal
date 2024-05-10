@@ -39,7 +39,7 @@ teal. Assuming you are using an empty project template to try it out, here is ho
    
    return M
    ```
-2. Create `main.script` file in the main directory, with the following content:
+2. Create `main.script` file in the `main` directory, set it's to this:
    ```lua
    -- we are importing the Teal file as if it was Lua
    local greeter = require("main.greeter")
