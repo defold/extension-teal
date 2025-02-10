@@ -56,10 +56,17 @@ function test.run_test_suite(rockspec_arg, test_type, args, prepare)
    end
    assert(test_type)
 
-   if next(rockspec.test_dependencies) then
-      local ok, err, errcode = deps.fulfill_dependencies(rockspec, "test_dependencies", "all")
-      if err then
-         return nil, err, errcode
+   local all_deps = {
+      "dependencies",
+      "build_dependencies",
+      "test_dependencies",
+   }
+   for _, dep_kind in ipairs(all_deps) do
+      if rockspec[dep_kind] and next(rockspec[dep_kind]) then
+         local ok, err, errcode = deps.fulfill_dependencies(rockspec, dep_kind, "all")
+         if err then
+            return nil, err, errcode
+         end
       end
    end
 
@@ -70,7 +77,11 @@ function test.run_test_suite(rockspec_arg, test_type, args, prepare)
    end
 
    if prepare then
-      return test_mod.run_tests(rockspec_arg, {"--version"})
+      if test_type == "busted" then
+         return test_mod.run_tests(rockspec_arg, {"--version"})
+      else
+         return true
+      end
    else
       local flags = rockspec.test and rockspec.test.flags
       if type(flags) == "table" then

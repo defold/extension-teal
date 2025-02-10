@@ -27,7 +27,7 @@ function Sandbox:run(max_instructions, ...)
          if jit then
 
 
-            debug.sethook()
+            debug.sethook(nil, nil)
          else
             error("Exceeded maximum instructions", 2)
          end
@@ -39,9 +39,9 @@ function Sandbox:run(max_instructions, ...)
       table.remove(res, 1)
       self._result = res
       return true
-   else
-      return false, res[2] .. "\n" .. debug.traceback(t)
    end
+
+   return false, res[2] .. "\n" .. debug.traceback(t)
 end
 
 function Sandbox:result()

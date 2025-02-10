@@ -13,6 +13,7 @@
 local table, pairs, require, os, pcall, ipairs, package, type, assert =
       table, pairs, require, os, pcall, ipairs, package, type, assert
 
+local dir = require("luarocks.core.dir")
 local util = require("luarocks.core.util")
 local persist = require("luarocks.core.persist")
 local sysdetect = require("luarocks.core.sysdetect")
@@ -20,7 +21,7 @@ local vers = require("luarocks.core.vers")
 
 --------------------------------------------------------------------------------
 
-local program_version = "3.9.1"
+local program_version = "3.11.1"
 
 local is_windows = package.config:sub(1,1) == "\\"
 
@@ -53,21 +54,25 @@ local function detect_sysconfdir()
    if not debug then
       return
    end
-   local src = debug.getinfo(1, "S").source:gsub("\\", "/"):gsub("/+", "/")
+   local src = debug.getinfo(1, "S").source
+   if not src then
+      return
+   end
+   src = dir.normalize(src)
    if src:sub(1, 1) == "@" then
       src = src:sub(2)
    end
-   local basedir = src:match("^(.*)/luarocks/core/cfg.lua$")
+   local basedir = src:match("^(.*)[\\/]luarocks[\\/]core[\\/]cfg.lua$")
    if not basedir then
       return
    end
    -- If installed in a Unix-like tree, use a Unix-like sysconfdir
-   local installdir = basedir:match("^(.*)/share/lua/[^/]*$")
+   local installdir = basedir:match("^(.*)[\\/]share[\\/]lua[\\/][^/]*$")
    if installdir then
       if installdir == "/usr" then
          return "/etc/luarocks"
       end
-      return installdir .. "/etc/luarocks"
+      return dir.path(installdir, "etc", "luarocks")
    end
    -- Otherwise, use base directory of sources
    return basedir
@@ -175,7 +180,6 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
    -- Configure defaults:
    local defaults = {
 
-      lua_interpreter = "lua",
       local_by_default = false,
       accept_unknown_fields = false,
       fs_use_modules = true,
@@ -187,9 +191,9 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
       cache_timeout = 60,
       cache_fail_timeout = 86400,
 
-      lua_modules_path = "/share/lua/"..lua_version,
-      lib_modules_path = "/lib/lua/"..lua_version,
-      rocks_subdir = "/lib/luarocks/rocks-"..lua_version,
+      lua_modules_path = dir.path("share", "lua", lua_version),
+      lib_modules_path = dir.path("lib", "lua", lua_version),
+      rocks_subdir = dir.path("lib", "luarocks", "rocks-"..lua_version),
 
       arch = "unknown",
       lib_extension = "unknown",
@@ -200,7 +204,7 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
          {
            "https://luarocks.org",
            "https://raw.githubusercontent.com/rocks-moonscript-org/moonrocks-mirror/master/",
-           "https://luafr.org/luarocks/",
+           "https://loadk.com/luarocks/",
          }
       },
       disabled_servers = {},
@@ -215,11 +219,11 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
       connection_timeout = 30,  -- 0 = no timeout
 
       variables = {
-         MAKE = "make",
-         CC = "cc",
-         LD = "ld",
-         AR = "ar",
-         RANLIB = "ranlib",
+         MAKE = os.getenv("MAKE") or "make",
+         CC = os.getenv("CC") or "cc",
+         LD = os.getenv("CC") or "ld",
+         AR = os.getenv("AR") or "ar",
+         RANLIB = os.getenv("RANLIB") or "ranlib",
 
          CVS = "cvs",
          GIT = "git",
@@ -238,6 +242,7 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
          MKDIR = "mkdir",
          RMDIR = "rmdir",
          CP = "cp",
+         LN = "ln",
          LS = "ls",
          RM = "rm",
          FIND = "find",
@@ -283,24 +288,27 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
       defaults.external_lib_extension = "dll"
       defaults.static_lib_extension = "lib"
       defaults.obj_extension = "obj"
-      defaults.external_deps_dirs = { "c:/external/", "c:/windows/system32" }
+      defaults.external_deps_dirs = {
+         dir.path("c:", "external"),
+         dir.path("c:", "windows", "system32"),
+      }
 
       defaults.makefile = "Makefile.win"
       defaults.variables.PWD = "echo %cd%"
-      defaults.variables.MAKE = "nmake"
-      defaults.variables.CC = "cl"
-      defaults.variables.RC = "rc"
-      defaults.variables.LD = "link"
-      defaults.variables.MT = "mt"
-      defaults.variables.AR = "lib"
-      defaults.variables.LUALIB = "lua"..lua_version..".lib"
+      defaults.variables.MKDIR = "md"
+      defaults.variables.MAKE = os.getenv("MAKE") or "nmake"
+      defaults.variables.CC = os.getenv("CC") or "cl"
+      defaults.variables.RC = os.getenv("WINDRES") or "rc"
+      defaults.variables.LD = os.getenv("LINK") or "link"
+      defaults.variables.MT = os.getenv("MT") or "mt"
+      defaults.variables.AR = os.getenv("AR") or "lib"
       defaults.variables.CFLAGS = os.getenv("CFLAGS") or "/nologo /MD /O2"
       defaults.variables.LDFLAGS = os.getenv("LDFLAGS")
       defaults.variables.LIBFLAG = "/nologo /dll"
 
       defaults.external_deps_patterns = {
          bin = { "?.exe", "?.bat" },
-         lib = { "?.lib", "?.dll", "lib?.dll" },
+         lib = { "?.lib", "lib?.lib", "?.dll", "lib?.dll" },
          include = { "?.h" }
       }
       defaults.runtime_external_deps_patterns = {
@@ -314,13 +322,13 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
       local localappdata = os.getenv("LOCALAPPDATA")
       if not localappdata then
          -- for Windows versions below Vista
-         localappdata = (os.getenv("USERPROFILE") or "c:/Users/All Users").."/Local Settings/Application Data"
+         localappdata = dir.path((os.getenv("USERPROFILE") or dir.path("c:", "Users", "All Users")), "Local Settings", "Application Data")
       end
-      defaults.local_cache = localappdata.."/LuaRocks/Cache"
+      defaults.local_cache = dir.path(localappdata, "LuaRocks", "Cache")
       defaults.web_browser = "start"
 
-      defaults.external_deps_subdirs.lib = { "", "lib", "bin" }
-      defaults.runtime_external_deps_subdirs.lib = { "", "lib", "bin" }
+      defaults.external_deps_subdirs.lib = { "lib", "", "bin" }
+      defaults.runtime_external_deps_subdirs.lib = { "lib", "", "bin" }
       defaults.link_lua_explicitly = true
       defaults.fs_use_modules = false
    end
@@ -328,14 +336,23 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
    if platforms.mingw32 then
       defaults.obj_extension = "o"
       defaults.static_lib_extension = "a"
-      defaults.external_deps_dirs = { "c:/external/", "c:/mingw", "c:/windows/system32" }
+      defaults.external_deps_dirs = {
+         dir.path("c:", "external"),
+         dir.path("c:", "mingw"),
+         dir.path("c:", "windows", "system32"),
+      }
       defaults.cmake_generator = "MinGW Makefiles"
-      defaults.variables.MAKE = "mingw32-make"
-      defaults.variables.CC = "mingw32-gcc"
-      defaults.variables.RC = "windres"
-      defaults.variables.LD = "mingw32-gcc"
-      defaults.variables.AR = "ar"
-      defaults.variables.RANLIB = "ranlib"
+      defaults.variables.MAKE = os.getenv("MAKE") or "mingw32-make"
+      if target_cpu == "x86_64" then
+         defaults.variables.CC = os.getenv("CC") or "x86_64-w64-mingw32-gcc"
+         defaults.variables.LD = os.getenv("CC") or "x86_64-w64-mingw32-gcc"
+      else
+         defaults.variables.CC = os.getenv("CC") or "mingw32-gcc"
+         defaults.variables.LD = os.getenv("CC") or "mingw32-gcc"
+      end
+      defaults.variables.AR = os.getenv("AR") or "ar"
+      defaults.variables.RC = os.getenv("WINDRES") or "windres"
+      defaults.variables.RANLIB = os.getenv("RANLIB") or "ranlib"
       defaults.variables.CFLAGS = os.getenv("CFLAGS") or "-O2"
       defaults.variables.LDFLAGS = os.getenv("LDFLAGS")
       defaults.variables.LIBFLAG = "-shared"
@@ -372,8 +389,8 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
       defaults.variables.LDFLAGS = os.getenv("LDFLAGS")
 
       defaults.cmake_generator = "Unix Makefiles"
-      defaults.variables.CC = "gcc"
-      defaults.variables.LD = "gcc"
+      defaults.variables.CC = os.getenv("CC") or "gcc"
+      defaults.variables.LD = os.getenv("CC") or "gcc"
       defaults.gcc_rpath = true
       defaults.variables.LIBFLAG = "-shared"
       defaults.variables.TEST = "test"
@@ -399,8 +416,8 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
       defaults.lib_extension = "so" -- can be overridden in the config file for mingw builds
       defaults.arch = "cygwin-"..target_cpu
       defaults.cmake_generator = "Unix Makefiles"
-      defaults.variables.CC = "echo -llua | xargs gcc"
-      defaults.variables.LD = "echo -llua | xargs gcc"
+      defaults.variables.CC = "echo -llua | xargs " .. (os.getenv("CC") or "gcc")
+      defaults.variables.LD = "echo -llua | xargs " .. (os.getenv("CC") or "gcc")
       defaults.variables.LIBFLAG = "-shared"
       defaults.link_lua_explicitly = true
    end
@@ -427,18 +444,20 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
          local pipe = io.popen("cygpath --windows %MINGW_PREFIX%")
          local mingw_prefix = pipe:read("*l")
          pipe:close()
-         defaults.external_deps_dirs = { mingw_prefix, "c:/windows/system32" }
+         defaults.external_deps_dirs = {
+            mingw_prefix,
+            dir.path("c:", "windows", "system32"),
+         }
          defaults.makefile = "Makefile"
          defaults.cmake_generator = "MSYS Makefiles"
-         defaults.local_cache = home.."/.cache/luarocks"
-         defaults.variables.MAKE = "make"
-         defaults.variables.CC = "gcc"
-         defaults.variables.RC = "windres"
-         defaults.variables.LD = "gcc"
-         defaults.variables.MT = nil
-         defaults.variables.AR = "ar"
-         defaults.variables.RANLIB = "ranlib"
-         defaults.variables.LUALIB = "liblua"..lua_version..".dll.a"
+         defaults.local_cache = dir.path(home, ".cache", "luarocks")
+         defaults.variables.MAKE = os.getenv("MAKE") or "make"
+         defaults.variables.CC = os.getenv("CC") or "gcc"
+         defaults.variables.RC = os.getenv("WINDRES") or "windres"
+         defaults.variables.LD = os.getenv("CC") or "gcc"
+         defaults.variables.MT = os.getenv("MT") or nil
+         defaults.variables.AR = os.getenv("AR") or "ar"
+         defaults.variables.RANLIB = os.getenv("RANLIB") or "ranlib"
 
          defaults.variables.CFLAGS = os.getenv("CFLAGS") or "-O2 -fPIC"
          if not defaults.variables.CFLAGS:match("-fPIC") then
@@ -452,12 +471,12 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
    if platforms.bsd then
       defaults.variables.MAKE = "gmake"
       defaults.gcc_rpath = false
-      defaults.variables.CC = "cc"
-      defaults.variables.LD = defaults.variables.CC
+      defaults.variables.CC = os.getenv("CC") or "cc"
+      defaults.variables.LD = os.getenv("CC") or defaults.variables.CC
    end
 
    if platforms.macosx then
-      defaults.variables.MAKE = "make"
+      defaults.variables.MAKE = os.getenv("MAKE") or "make"
       defaults.external_lib_extension = "dylib"
       defaults.arch = "macosx-"..target_cpu
       defaults.variables.LIBFLAG = "-bundle -undefined dynamic_lookup -all_load"
@@ -489,8 +508,8 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
 
       -- Homebrew
       table.insert(defaults.external_deps_dirs, "/usr/local/opt")
-      defaults.external_deps_subdirs.lib = { "", "lib", }
-      defaults.runtime_external_deps_subdirs.lib = { "", "lib", }
+      defaults.external_deps_subdirs.lib = { "lib", "" }
+      defaults.runtime_external_deps_subdirs.lib = { "lib", "" }
       table.insert(defaults.external_deps_patterns.lib, 1, "/?/lib/lib?.dylib")
       table.insert(defaults.runtime_external_deps_patterns.lib, 1, "/?/lib/lib?.dylib")
    end
@@ -500,11 +519,11 @@ local function make_defaults(lua_version, target_cpu, platforms, home)
 
       local gcc_arch = util.popen_read("gcc -print-multiarch 2>/dev/null")
       if gcc_arch and gcc_arch ~= "" then
-         defaults.external_deps_subdirs.lib = { "lib", "lib/" .. gcc_arch, "lib64" }
-         defaults.runtime_external_deps_subdirs.lib = { "lib", "lib/" .. gcc_arch, "lib64" }
+         defaults.external_deps_subdirs.lib = { "lib/" .. gcc_arch, "lib64", "lib" }
+         defaults.runtime_external_deps_subdirs.lib = { "lib/" .. gcc_arch, "lib64", "lib" }
       else
-         defaults.external_deps_subdirs.lib = { "lib", "lib64" }
-         defaults.runtime_external_deps_subdirs.lib = { "lib", "lib64" }
+         defaults.external_deps_subdirs.lib = { "lib64", "lib" }
+         defaults.runtime_external_deps_subdirs.lib = { "lib64", "lib" }
       end
    end
 
@@ -550,19 +569,6 @@ local function use_defaults(cfg, defaults)
    end
 end
 
-local function get_first_arg()
-   if not arg then
-      return
-   end
-   local first_arg = arg[0]
-   local i = -1
-   while arg[i] do
-      first_arg = arg[i]
-      i = i -1
-   end
-   return first_arg
-end
-
 --------------------------------------------------------------------------------
 
 local cfg = {}
@@ -574,7 +580,7 @@ local cfg = {}
 -- * lua_version (in x.y format, e.g. "5.3")
 -- * lua_bindir (e.g. "/usr/local/bin")
 -- * lua_dir (e.g. "/usr/local")
--- * lua_interpreter (e.g. "lua-5.3")
+-- * lua (e.g. "/usr/local/bin/lua-5.3")
 -- * project_dir (a string with the path of the project directory
 --   when using per-project environments, as created with `luarocks init`)
 -- @param warning a logging function for warnings that takes a string
@@ -609,20 +615,37 @@ function cfg.init(detected, warning)
 
    -- Use detected values as defaults, overridable via config files or CLI args
 
-   local first_arg = get_first_arg()
+   local hardcoded_lua = hardcoded.LUA
+   local hardcoded_lua_dir = hardcoded.LUA_DIR
+   local hardcoded_lua_bindir = hardcoded.LUA_BINDIR
+   local hardcoded_lua_incdir = hardcoded.LUA_INCDIR
+   local hardcoded_lua_libdir = hardcoded.LUA_LIBDIR
+   local hardcoded_lua_version = hardcoded.LUA_VERSION or _VERSION:sub(5)
 
-   cfg.lua_version = detected.lua_version or hardcoded.LUA_VERSION or _VERSION:sub(5)
-   cfg.lua_interpreter = detected.lua_interpreter or hardcoded.LUA_INTERPRETER or (first_arg and first_arg:gsub(".*[\\/]", "")) or (is_windows and "lua.exe" or "lua")
+   -- if --lua-version or --lua-dir are passed from the CLI,
+   -- don't use the hardcoded paths at all
+   if detected.given_lua_version or detected.given_lua_dir then
+      hardcoded_lua = nil
+      hardcoded_lua_dir = nil
+      hardcoded_lua_bindir = nil
+      hardcoded_lua_incdir = nil
+      hardcoded_lua_libdir = nil
+      hardcoded_lua_version = nil
+   end
+
+   cfg.lua_version = detected.lua_version or hardcoded_lua_version
    cfg.project_dir = (not hardcoded.FORCE_CONFIG) and detected.project_dir
 
    do
-      local lua_bindir = detected.lua_bindir or hardcoded.LUA_BINDIR or (first_arg and first_arg:gsub("[\\/][^\\/]+$", ""))
-      local lua_dir = detected.lua_dir or hardcoded.LUA_DIR or (lua_bindir and lua_bindir:gsub("[\\/]bin$", ""))
+      local lua = detected.lua or hardcoded_lua
+      local lua_dir = detected.lua_dir or hardcoded_lua_dir
+      local lua_bindir = detected.lua_bindir or hardcoded_lua_bindir
       cfg.variables = {
+         LUA = lua,
          LUA_DIR = lua_dir,
          LUA_BINDIR = lua_bindir,
-         LUA_LIBDIR = hardcoded.LUA_LIBDIR,
-         LUA_INCDIR = hardcoded.LUA_INCDIR,
+         LUA_LIBDIR = hardcoded_lua_libdir,
+         LUA_INCDIR = hardcoded_lua_incdir,
       }
    end
 
@@ -679,17 +702,17 @@ function cfg.init(detected, warning)
       local sysconfdir = os.getenv("LUAROCKS_SYSCONFDIR") or hardcoded.SYSCONFDIR
       if platforms.windows and not platforms.msys2_mingw_w64 then
          cfg.home = os.getenv("APPDATA") or "c:"
-         cfg.home_tree = cfg.home.."/luarocks"
-         cfg.sysconfdir = sysconfdir or ((os.getenv("PROGRAMFILES") or "c:") .. "/luarocks")
+         cfg.home_tree = dir.path(cfg.home, "luarocks")
+         cfg.sysconfdir = sysconfdir or dir.path((os.getenv("PROGRAMFILES") or "c:"), "luarocks")
       else
          cfg.home = os.getenv("HOME") or ""
-         cfg.home_tree = cfg.home.."/.luarocks"
+         cfg.home_tree = dir.path(cfg.home, ".luarocks")
          cfg.sysconfdir = sysconfdir or detect_sysconfdir() or "/etc/luarocks"
       end
    end
 
    -- Load system configuration file
-   sys_config_file = (cfg.sysconfdir .. "/" .. config_file_name):gsub("\\", "/")
+   sys_config_file = dir.path(cfg.sysconfdir, config_file_name)
    local sys_config_ok, err = load_config_file(cfg, platforms, sys_config_file)
    if err then
       exit_ok, exit_err, exit_what = nil, err, "config"
@@ -721,9 +744,9 @@ function cfg.init(detected, warning)
 
       -- try XDG config home
       if platforms.unix and not home_config_ok then
-         local xdg_config_home = os.getenv("XDG_CONFIG_HOME") or cfg.home .. "/.config"
-         cfg.homeconfdir = xdg_config_home .. "/luarocks"
-         home_config_file = (cfg.homeconfdir .. "/" .. config_file_name):gsub("\\", "/")
+         local xdg_config_home = os.getenv("XDG_CONFIG_HOME") or dir.path(cfg.home, ".config")
+         cfg.homeconfdir = dir.path(xdg_config_home, "luarocks")
+         home_config_file = dir.path(cfg.homeconfdir, config_file_name)
          home_config_ok, err = load_config_file(cfg, platforms, home_config_file)
          if err then
             exit_ok, exit_err, exit_what = nil, err, "config"
@@ -733,7 +756,7 @@ function cfg.init(detected, warning)
       -- try the alternative defaults if there was no environment specified file or it didn't work
       if not home_config_ok then
          cfg.homeconfdir = cfg.home_tree
-         home_config_file = (cfg.homeconfdir .. "/" .. config_file_name):gsub("\\", "/")
+         home_config_file = dir.path(cfg.homeconfdir, config_file_name)
          home_config_ok, err = load_config_file(cfg, platforms, home_config_file)
          if err then
             exit_ok, exit_err, exit_what = nil, err, "config"
@@ -742,12 +765,17 @@ function cfg.init(detected, warning)
 
       -- finally, use the project-specific config file if any
       if cfg.project_dir then
-         project_config_file = cfg.project_dir .. "/.luarocks/" .. config_file_name
+         project_config_file = dir.path(cfg.project_dir, ".luarocks", config_file_name)
          project_config_ok, err = load_config_file(cfg, platforms, project_config_file)
          if err then
             exit_ok, exit_err, exit_what = nil, err, "config"
          end
       end
+   end
+
+   -- backwards compatibility:
+   if cfg.lua_interpreter and cfg.variables.LUA_BINDIR and not cfg.variables.LUA then
+      cfg.variables.LUA = dir.path(cfg.variables.LUA_BINDIR, cfg.lua_interpreter)
    end
 
    ----------------------------------------
@@ -759,11 +787,11 @@ function cfg.init(detected, warning)
    cfg.project_dir = detected.given_project_dir or cfg.project_dir
    cfg.lua_version = detected.given_lua_version or cfg.lua_version
    if detected.given_lua_dir then
+      cfg.variables.LUA = detected.lua
       cfg.variables.LUA_DIR = detected.given_lua_dir
       cfg.variables.LUA_BINDIR = detected.lua_bindir
       cfg.variables.LUA_LIBDIR = nil
       cfg.variables.LUA_INCDIR = nil
-      cfg.lua_interpreter = detected.lua_interpreter
    end
 
    -- Build a default list of rocks trees if not given
@@ -782,15 +810,23 @@ function cfg.init(detected, warning)
    if platforms.windows and hardcoded.WIN_TOOLS then
       local tools = { "SEVENZ", "CP", "FIND", "LS", "MD5SUM", "WGET", }
       for _, tool in ipairs(tools) do
-         defaults.variables[tool] = '"' .. hardcoded.WIN_TOOLS .. "/" .. defaults.variables[tool] .. '.exe"'
+         defaults.variables[tool] = '"' .. dir.path(hardcoded.WIN_TOOLS, defaults.variables[tool] .. '.exe') .. '"'
       end
    else
       defaults.fs_use_modules = true
    end
 
+   -- if only cfg.variables.LUA is given in config files,
+   -- derive LUA_BINDIR and LUA_DIR from them.
+   if cfg.variables.LUA and not cfg.variables.LUA_BINDIR then
+      cfg.variables.LUA_BINDIR = cfg.variables.LUA:match("^(.*)[\\/][^\\/]*$")
+      if not cfg.variables.LUA_DIR then
+         cfg.variables.LUA_DIR = cfg.variables.LUA_BINDIR:gsub("[\\/]bin$", "") or cfg.variables.LUA_BINDIR
+      end
+   end
+
    use_defaults(cfg, defaults)
 
-   cfg.variables.LUA = cfg.variables.LUA or (cfg.variables.LUA_BINDIR and (cfg.variables.LUA_BINDIR .. "/" .. cfg.lua_interpreter):gsub("//", "/"))
    cfg.user_agent = "LuaRocks/"..cfg.program_version.." "..cfg.arch
 
    cfg.config_files = {
@@ -824,13 +860,13 @@ function cfg.init(detected, warning)
       local function make_paths_from_tree(tree)
          local lua_path, lib_path, bin_path
          if type(tree) == "string" then
-            lua_path = tree..cfg.lua_modules_path
-            lib_path = tree..cfg.lib_modules_path
-            bin_path = tree.."/bin"
+            lua_path = dir.path(tree, cfg.lua_modules_path)
+            lib_path = dir.path(tree, cfg.lib_modules_path)
+            bin_path = dir.path(tree, "bin")
          else
-            lua_path = tree.lua_dir or tree.root..cfg.lua_modules_path
-            lib_path = tree.lib_dir or tree.root..cfg.lib_modules_path
-            bin_path = tree.bin_dir or tree.root.."/bin"
+            lua_path = tree.lua_dir or dir.path(tree.root, cfg.lua_modules_path)
+            lib_path = tree.lib_dir or dir.path(tree.root, cfg.lib_modules_path)
+            bin_path = tree.bin_dir or dir.path(tree.root, "bin")
          end
          return lua_path, lib_path, bin_path
       end
@@ -839,9 +875,9 @@ function cfg.init(detected, warning)
          local new_path, new_cpath, new_bin = {}, {}, {}
          local function add_tree_to_paths(tree)
             local lua_path, lib_path, bin_path = make_paths_from_tree(tree)
-            table.insert(new_path, lua_path.."/?.lua")
-            table.insert(new_path, lua_path.."/?/init.lua")
-            table.insert(new_cpath, lib_path.."/?."..cfg.lib_extension)
+            table.insert(new_path,  dir.path(lua_path, "?.lua"))
+            table.insert(new_path,  dir.path(lua_path, "?", "init.lua"))
+            table.insert(new_cpath, dir.path(lib_path, "?."..cfg.lib_extension))
             table.insert(new_bin, bin_path)
          end
          if current then

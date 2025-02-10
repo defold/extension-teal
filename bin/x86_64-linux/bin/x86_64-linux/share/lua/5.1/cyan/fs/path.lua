@@ -2,6 +2,8 @@ local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 th
 
 
 
+
+
 local lfs = require("lfs")
 
 local util = require("cyan.util")
@@ -44,7 +46,8 @@ local function parse_string_path(s, use_os_sep)
    s = s:gsub(sep .. "+", sep)
    if s == "" then
       return {}
-   elseif s:sub(-1) == sep then
+   end
+   if s:sub(-1) == sep then
       s = s:sub(1, -2)
    end
 
@@ -84,15 +87,15 @@ end
 function path.ensure(s, use_os_sep)
    if type(s) == "string" then
       return path.new(s, use_os_sep)
-   else
-      return s
    end
+   return s
 end
 
 local function string_is_absolute_path(p)
    if path.separator == "/" then
       return p:sub(1, 1) == "/"
-   elseif path.separator == "\\" then
+   end
+   if path.separator == "\\" then
       return p:match("^%a:$")
    end
 end
@@ -143,9 +146,11 @@ function Path:is_absolute()
    if #self < 1 then return false end
    if path.separator == "/" then
       return self[1] == ""
-   elseif path.separator == "\\" then
+   end
+   if path.separator == "\\" then
       return self[1]:match("^%a:$")
    end
+   return false
 end
 
 
@@ -181,7 +186,7 @@ end
 
 
 function Path:append(other)
-   local p = type(other) == "string" and path.new(other) or other
+   local p = type(other) == "string" and path.new(other, false) or other
    if p:is_absolute() then
       error("Attempt to append absolute path", 2)
    end
@@ -194,7 +199,7 @@ function Path:prepend(other)
    if self:is_absolute() then
       error("Attempt to prepend to absolute path", 2)
    end
-   other = path.ensure(other)
+   other = path.ensure(other, false)
    local other_len = #other
    table.move(self, 1, #self, other_len + 1)
    for i = 1, other_len do
@@ -287,9 +292,8 @@ function Path:mkdir()
    local succ, err = self:mk_parent_dirs()
    if succ then
       return lfs.mkdir(self:to_real_path())
-   else
-      return false, err
    end
+   return false, err
 end
 
 
@@ -297,7 +301,7 @@ end
 
 
 function Path:remove_leading(p)
-   local leading = type(p) == "string" and path.new(p) or p
+   local leading = type(p) == "string" and path.new(p, false) or p
    if xor(leading:is_absolute(), self:is_absolute()) then
       error(("Attempt to mix absolute and non-absolute path: (%s) and (%s)"):format(self:tostring(), leading:tostring()), 2)
    end
@@ -343,8 +347,27 @@ function Path.eq(a, b, use_os_sep)
       return true
    end
 
-   local pa = type(a) == "string" and path.new(a, use_os_sep) or (a):copy()
-   local pb = type(b) == "string" and path.new(b, use_os_sep) or (b):copy()
+   local pa
+   local pb
+
+
+   if type(a) == "string" then
+      pa = path.new(a, use_os_sep)
+   else
+      if getmetatable(a) ~= PathMt then
+         return false
+      end
+      pa = a:copy()
+   end
+
+   if type(b) == "string" then
+      pa = path.new(b, use_os_sep)
+   else
+      if getmetatable(b) ~= PathMt then
+         return false
+      end
+      pb = b:copy()
+   end
 
    pa:to_absolute()
    pb:to_absolute()
@@ -382,7 +405,7 @@ end
 local pattern_cache = setmetatable({}, { __mode = "kv" })
 local function get_patt(patt)
    if not pattern_cache[patt] then
-      local path_patt = parse_string_path(patt)
+      local path_patt = parse_string_path(patt, false)
 
 
 
@@ -537,6 +560,25 @@ function Path:is_in(dirname, use_os_sep)
    end
 
    return true
+end
+
+function Path:extension_split(ndots)
+   local result = self:copy()
+   if #result == 0 then
+      return result
+   end
+
+   local last = result[#result]
+   for n = ndots or 1, 1, -1 do
+      local patt = "^(.-)(" .. ("%.[^%.]+"):rep(n) .. ")$"
+      local base, ext = last:match(patt)
+      if ext then
+         result[#result] = base
+         return result, ext:lower()
+      end
+   end
+
+   return result
 end
 
 return path

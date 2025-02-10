@@ -1,0 +1,22 @@
+rock_manifest = {
+   ["compat53-0.14.4-1.rockspec"] = "9db08aa7dab6fa9f3d2bd12831960f37",
+   doc = {
+      LICENSE = "b863a95a5f6ff64e40a0bb54501225d0",
+      ["README.md"] = "bd83370db2d2b98cb84607138cbad95a"
+   },
+   lib = {
+      compat53 = {
+         ["io.so"] = "3de62d76d2311ae6ef5f9f621f9b9932",
+         ["string.so"] = "ec7d12953f1a35278796a3edc329a382",
+         ["table.so"] = "e5224e36bd2538dd6e18f341507b305e",
+         ["utf8.so"] = "6f76ee274e60253e29f82bcf785b8e48"
+      }
+   },
+   lua = {
+      compat53 = {
+         ["file_mt.lua"] = "ef98a2bfea46f9a6b37afe73f0dea2b0",
+         ["init.lua"] = "a405a18d3954770056f34524b9e4f73a",
+         ["module.lua"] = "473049854922767d34d75e4f0c08208d"
+      }
+   }
+}

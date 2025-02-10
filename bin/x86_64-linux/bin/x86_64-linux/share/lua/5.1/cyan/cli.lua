@@ -16,55 +16,58 @@ local util = require("cyan.util")
 local keys, from, sort, ivalues =
 util.tab.keys, util.tab.from, util.tab.sort_in_place, util.tab.ivalues
 
-local parser = argparse("cyan", "The Teal build system")
+local parser = argparse("cyan", "The Teal build system", nil)
 parser:add_help(false)
 
-parser:option("-l --preload", "Execute the equivalent of require('modulename') before processing Teal files."):
+parser:option("-l --preload", "Execute the equivalent of require('modulename') before processing Teal files.", nil, nil, nil, nil):
 argname("<modulename>"):
 count("*")
 
-parser:option("--global-env-def", "Load <module-name> before typechecking. Use this to define types provided by your environment."):
+parser:option("--global-env-def", "Load <module-name> before typechecking. Use this to define types provided by your environment.", nil, nil, nil, nil):
 argname("<module-name>"):
 count("?")
 
-parser:option("-I --include-dir", "Prepend this directory to the module search path."):
+parser:option("-I --include-dir", "Prepend this directory to the module search path.", nil, nil, nil, nil):
 argname("<directory>"):
 count("*")
 
 local warnings = sort(from(keys(tl.warning_kinds)))
 table.insert(warnings, "all")
-parser:option("--wdisable", "Disable the given kind of warning. Use '--wdisable all' to disable all warnings"):
+parser:option("--wdisable", "Disable the given kind of warning. Use '--wdisable all' to disable all warnings", nil, nil, nil, nil):
 argname("<warning>"):
 choices(warnings):
 count("*")
 
-parser:option("--werror", "Promote the given kind of warning to an error. Use '--werror all' to promote all warnings to errors"):
+parser:option("--werror", "Promote the given kind of warning to an error. Use '--werror all' to promote all warnings to errors", nil, nil, nil, nil):
 argname("<warning>"):
 choices(warnings):
 count("*")
 
-parser:option("--gen-compat", "Generate compatibility code for targeting different Lua VM versions."):
+parser:option("--gen-compat", "Generate compatibility code for targeting different Lua VM versions.", nil, nil, nil, nil):
 choices({ "off", "optional", "required" }):
 default("optional"):
 defmode("a")
 
-parser:option("--gen-target", "Minimum targeted Lua version for generated code."):
+parser:option("--gen-target", "Minimum targeted Lua version for generated code.", nil, nil, nil, nil):
 choices({ "5.1", "5.3", "5.4" })
 
 parser:flag("--no-script", "Do not run any scripts."):
 action(script.disable)
 
 parser:mutex(
-parser:flag("-q --quiet", "Do not print information messages to stdout. Errors may still be printed to stderr. (Same as --verbosity quiet)."),
-parser:option("-v --verbosity", "Set verbosity of logging."):
+parser:flag("-q --quiet", "Do not print information messages to stdout. Errors may still be printed to stderr. (Same as --verbosity quiet)."):
+action(function()
+   log.set_verbosity("quiet")
+end),
+parser:option("-v --verbosity", "Set verbosity of logging.", nil, nil, nil, nil):
 choices(log.verbosities):
 action(function(_, __, val)
    log.set_verbosity(val)
 end))
 
 
-parser:option("-s --source-dir", "Override the source directory.")
-parser:option("-b --build-dir", "Override the build directory.")
+parser:option("-s --source-dir", "Override the source directory.", nil, nil, nil, nil)
+parser:option("-b --build-dir", "Override the build directory.", nil, nil, nil, nil)
 
 parser:command_target("command")
 
@@ -79,7 +82,7 @@ command.new({
 
 parser:flag("-h --help", "Show this help message and exit"):
 action(function()
-   os.exit(command.get("help").exec())
+   os.exit(command.get("help").exec(nil, nil, nil))
 end)
 
 command.new({
@@ -95,31 +98,6 @@ command.new({
    end,
 })
 
-require("cyan.commands.initialize")
-require("cyan.commands.check-gen")
-require("cyan.commands.run")
-require("cyan.commands.build")
-require("cyan.commands.warnings")
-
-command.register_all(parser)
-
-
-local args
-do
-   local ok, res = parser:pparse()
-   if not ok then
-      log.err(res)
-      log.info(parser:get_usage())
-      os.exit(1)
-   end
-   args = res
-end
-local cmd = assert(command.get(args.command))
-command.running = cmd
-
-log.debug("Arguments: ", args)
-
-local exit = 1
 local starting_dir = fs.cwd()
 local config_path = config.find()
 if config_path then
@@ -139,6 +117,33 @@ end
 if not loaded_config then
    loaded_config = {}
 end
+
+require("cyan.commands.initialize")
+require("cyan.commands.check-gen")
+require("cyan.commands.run")
+require("cyan.commands.build")
+require("cyan.commands.warnings")
+
+command.register_all(parser)
+
+
+local args
+do
+   local ok, res = parser:pparse(nil)
+   if not ok then
+      log.err(res)
+      log.info(parser:get_usage())
+      os.exit(1)
+   end
+   args = res
+end
+local cmd = assert(command.get(args.command))
+command.running = cmd
+
+log.debug("Arguments: ", args)
+
+local exit = 1
+
 command.merge_args_into_config(loaded_config, args)
 
 if loaded_config.scripts then

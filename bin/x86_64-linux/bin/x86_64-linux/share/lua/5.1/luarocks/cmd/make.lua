@@ -6,7 +6,6 @@
 local make = {}
 
 local build = require("luarocks.build")
-local fs = require("luarocks.fs")
 local util = require("luarocks.util")
 local cfg = require("luarocks.core.cfg")
 local fetch = require("luarocks.fetch")
@@ -14,7 +13,6 @@ local pack = require("luarocks.pack")
 local remove = require("luarocks.remove")
 local deps = require("luarocks.deps")
 local writer = require("luarocks.manif.writer")
-local cmd = require("luarocks.cmd")
 
 function make.cmd_options(parser)
    parser:flag("--no-install", "Do not install the rock.")
@@ -25,7 +23,8 @@ function make.cmd_options(parser)
       "rock after building a new one. This behavior can be made permanent by "..
       "setting keep_other_versions=true in the configuration file.")
    parser:flag("--force", "If --keep is not specified, force removal of "..
-      "previously installed versions if it would break dependencies.")
+      "previously installed versions if it would break dependencies. "..
+      "If rock is already installed, reinstall it anyway.")
    parser:flag("--force-fast", "Like --force, but performs a forced removal "..
       "without reporting dependency issues.")
    parser:flag("--verify", "Verify signature of the rockspec or src.rock being "..
@@ -107,6 +106,7 @@ function make.command(args)
       verify = not not args.verify,
       check_lua_versions = not not args.check_lua_versions,
       pin = not not args.pin,
+      rebuild = true,
       no_install = not not args.no_install
    })
 
@@ -125,9 +125,7 @@ function make.command(args)
          return name, version
       end)
    else
-      local ok, err = fs.check_command_permissions(args)
-      if not ok then return nil, err, cmd.errorcodes.PERMISSIONDENIED end
-      ok, err = build.build_rockspec(rockspec, opts)
+      local ok, err = build.build_rockspec(rockspec, opts)
       if not ok then return nil, err end
       local name, version = ok, err  -- luacheck: ignore 421
 
@@ -153,6 +151,13 @@ function make.command(args)
       writer.check_dependencies(nil, deps.get_deps_mode(args))
       return name, version
    end
+end
+
+make.needs_lock = function(args)
+   if args.pack_binary_rock or args.no_install then
+      return false
+   end
+   return true
 end
 
 return make

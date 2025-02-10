@@ -1,28 +1,19 @@
-local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local load = _tl_compat and _tl_compat.load or load; local package = _tl_compat and _tl_compat.package or package; local pairs = _tl_compat and _tl_compat.pairs or pairs; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table; local _tl_table_unpack = unpack or table.unpack
+local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local load = _tl_compat and _tl_compat.load or load; local package = _tl_compat and _tl_compat.package or package; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table; local _tl_table_unpack = unpack or table.unpack
 
 
 
 
 local config = require("cyan.config")
+local decoration = require("cyan.decoration")
 local fs = require("cyan.fs")
 local log = require("cyan.log")
 local util = require("cyan.util")
-local cs = require("cyan.colorstring")
 local tl = require("tl")
 
-local map, filter, ivalues, set =
-util.tab.map, util.tab.filter, util.tab.ivalues, util.tab.set
+local filter, ivalues, set =
+util.tab.filter, util.tab.ivalues, util.tab.set
 
-
-
-
-
-
-
-
-
-
-
+local insert = table.insert
 
 
 
@@ -54,7 +45,6 @@ function common.lex_file(path)
    return lex_cache[path][1], lex_cache[path][2]
 end
 
-local parse_program = tl.parse_program
 local parse_cache = {}
 
 
@@ -73,7 +63,7 @@ function common.parse_file(path)
          }
       else
          local errs = {}
-         local ast, reqs = parse_program(tks, errs, path)
+         local ast, reqs = tl.parse_program(tks, errs, path)
 
          parse_cache[path] = {
             tks = tks,
@@ -86,152 +76,173 @@ function common.parse_file(path)
    return parse_cache[path]
 end
 
-local type_check = tl.type_check
-
-
-function common.type_check_ast(ast, opts)
-   return type_check(ast, opts)
-end
-
 
 
 
 
 
 function common.make_error_header(file, num_errors, category)
-   return cs.new(
-   cs.colors.emphasis, tostring(num_errors),
-   " ", category, (num_errors ~= 1 and "s" or ""), { 0 },
-   " in ",
-   cs.colors.file, file, { 0 })
+   return {
+      decoration.decorate(
+      tostring(num_errors) .. " " .. category .. (num_errors ~= 1 and "s" or ""),
+      decoration.scheme.emphasis),
 
-end
-
-local highlights_by_kind = {
-   string = cs.colors.string,
-   integer = cs.colors.number,
-   number = cs.colors.number,
-}
-
-local highlights_by_content = {
-   ["+"] = cs.colors.op,
-   ["*"] = cs.colors.op,
-   ["-"] = cs.colors.op,
-   ["/"] = cs.colors.op,
-   ["^"] = cs.colors.op,
-   ["&"] = cs.colors.op,
-   ["=="] = cs.colors.op,
-   ["~="] = cs.colors.op,
-   [">"] = cs.colors.op,
-   [">="] = cs.colors.op,
-   ["<"] = cs.colors.op,
-   ["<="] = cs.colors.op,
-   ["="] = cs.colors.op,
-   ["~"] = cs.colors.op,
-
-   ["type"] = cs.colors.keyword,
-   ["record"] = cs.colors.keyword,
-   ["enum"] = cs.colors.keyword,
-   ["and"] = cs.colors.keyword,
-   ["break"] = cs.colors.keyword,
-   ["do"] = cs.colors.keyword,
-   ["else"] = cs.colors.keyword,
-   ["elseif"] = cs.colors.keyword,
-   ["end"] = cs.colors.keyword,
-   ["false"] = cs.colors.keyword,
-   ["for"] = cs.colors.keyword,
-   ["function"] = cs.colors.keyword,
-   ["goto"] = cs.colors.keyword,
-   ["if"] = cs.colors.keyword,
-   ["in"] = cs.colors.keyword,
-   ["local"] = cs.colors.keyword,
-   ["nil"] = cs.colors.keyword,
-   ["not"] = cs.colors.keyword,
-   ["or"] = cs.colors.keyword,
-   ["repeat"] = cs.colors.keyword,
-   ["return"] = cs.colors.keyword,
-   ["then"] = cs.colors.keyword,
-   ["true"] = cs.colors.keyword,
-   ["until"] = cs.colors.keyword,
-   ["while"] = cs.colors.keyword,
-}
-
-local function highlight_token(tk)
-   if highlights_by_content[tk.tk] then
-      return cs.highlight(highlights_by_content[tk.tk], tk.tk)
-   elseif highlights_by_kind[tk.kind] then
-      return cs.highlight(highlights_by_kind[tk.kind], tk.tk)
-   end
-   return cs.new(tk.tk == "$EOF$" and "" or tk.tk)
+      " in ",
+      decoration.file_name(file),
+   }
 end
 
 local function count_tabs(str)
    return select(2, str:gsub("\t", ""))
 end
 
-local function prettify_line(s)
-   local tks = tl.lex(s)
-   local highlighted = cs.new()
+local tk_operator = decoration.copy(decoration.scheme.operator, { monospace = true })
+local tk_keyword = decoration.copy(decoration.scheme.keyword, { monospace = true })
+local tk_number = decoration.copy(decoration.scheme.number, { monospace = true })
+local tk_string = decoration.copy(decoration.scheme.string, { monospace = true })
+
+local decoration_by_content = {
+   ["+"] = tk_operator,
+   ["*"] = tk_operator,
+   ["-"] = tk_operator,
+   ["/"] = tk_operator,
+   ["^"] = tk_operator,
+   ["&"] = tk_operator,
+   ["=="] = tk_operator,
+   ["~="] = tk_operator,
+   [">"] = tk_operator,
+   [">="] = tk_operator,
+   ["<"] = tk_operator,
+   ["<="] = tk_operator,
+   ["="] = tk_operator,
+   ["~"] = tk_operator,
+   ["#"] = tk_operator,
+   ["as"] = tk_operator,
+   ["is"] = tk_operator,
+
+   ["type"] = tk_keyword,
+   ["record"] = tk_keyword,
+   ["enum"] = tk_keyword,
+   ["and"] = tk_keyword,
+   ["break"] = tk_keyword,
+   ["do"] = tk_keyword,
+   ["else"] = tk_keyword,
+   ["elseif"] = tk_keyword,
+   ["end"] = tk_keyword,
+   ["false"] = tk_keyword,
+   ["for"] = tk_keyword,
+   ["function"] = tk_keyword,
+   ["goto"] = tk_keyword,
+   ["if"] = tk_keyword,
+   ["in"] = tk_keyword,
+   ["local"] = tk_keyword,
+   ["nil"] = tk_keyword,
+   ["not"] = tk_keyword,
+   ["or"] = tk_keyword,
+   ["repeat"] = tk_keyword,
+   ["return"] = tk_keyword,
+   ["then"] = tk_keyword,
+   ["true"] = tk_keyword,
+   ["until"] = tk_keyword,
+   ["while"] = tk_keyword,
+}
+
+local decoration_by_kind = {
+   string = tk_string,
+   integer = tk_number,
+   number = tk_number,
+}
+
+local monospace = { monospace = true }
+
+local function decorate_token(tk)
+   if decoration_by_content[tk.tk] then
+      return decoration.decorate(tk.tk, decoration_by_content[tk.tk])
+   end
+   if decoration_by_kind[tk.kind] then
+      return decoration.decorate(tk.tk, decoration_by_kind[tk.kind])
+   end
+   return decoration.decorate(tk.tk == "$EOF$" and "" or tk.tk, monospace)
+end
+
+
+
+
+function common.syntax_highlight(s)
+   local buf = {}
+   local tks = tl.lex(s, "")
    local last_x = 1
-   for _, tk in ipairs(tks) do
+   for tk in ivalues(tks) do
 
       local ts = count_tabs(s:sub(last_x, tk.x - 1))
-      if ts > 0 then
-         local spaces = 3 * ts
-         highlighted:append((" "):rep(spaces))
-      end
-      if last_x < tk.x then
-         highlighted:append((" "):rep(tk.x - last_x))
-      end
-      highlighted:append(highlight_token(tk))
+      local space_count =
+      (ts > 0 and 3 * ts or 0) +
+      (last_x < tk.x and tk.x - last_x or 0)
+      insert(buf, decoration.decorate((" "):rep(space_count), monospace))
+      insert(buf, decorate_token(tk))
       last_x = tk.x + #tk.tk
    end
-   return highlighted
+   return buf
 end
 
 local function prettify_error(e)
    local ln = fs.get_line(e.filename, e.y)
 
-   local tks = tl.lex(ln)
+   local tks = tl.lex(ln, "")
    local err_tk = {
       x = 1,
       tk = tl.get_token_at(tks, 1, e.x) or " ",
    }
 
-   local str = cs.new(
-   cs.colors.file, e.filename, { 0 },
-   " ", cs.colors.error_number, tostring(e.y), { 0 },
-   ":", cs.colors.error_number, tostring(e.x), { 0 })
-
+   local buf = {
+      decoration.file_name(e.filename),
+      ":", decoration.decorate(tostring(e.y), decoration.scheme.error_number),
+      ":", decoration.decorate(tostring(e.x), decoration.scheme.error_number),
+   }
 
    if e.tag then
-      str:insert(" [", cs.colors.emphasis, e.tag, { 0 }, "]")
+      insert(buf, " [")
+      insert(buf, decoration.decorate(e.tag, decoration.scheme.emphasis))
+      insert(buf, "]")
    end
 
-   str:insert("\n")
+   insert(buf, "\n")
 
    local num_len = #tostring(e.y)
-   local prefix = (" "):rep(num_len) .. " | "
+   local prefix = decoration.decorate((" "):rep(num_len) .. " │ ", monospace)
 
-   str:insert("   ", cs.colors.number, tostring(e.y), { 0 }, " | ")
-   str:append(prettify_line(ln))
-   str:insert(
-   "\n   ", prefix, (" "):rep(e.x + count_tabs(ln:sub(1, e.x)) * 3 - 1),
-   cs.colors.error, ("^"):rep(#err_tk.tk), { 0 }, "\n   ",
-   prefix, cs.colors.error, e.msg, { 0 })
+   insert(buf, decoration.decorate("   ", monospace))
+   insert(buf, decoration.decorate(tostring(e.y), decoration.copy(decoration.scheme.number, monospace)))
+   insert(buf, decoration.decorate(" │ ", monospace))
+   for v in ivalues(common.syntax_highlight(ln)) do
+      insert(buf, v)
+   end
 
+   insert(buf, decoration.decorate("\n   ", monospace))
+   insert(buf, prefix)
+   insert(buf, decoration.decorate((" "):rep(e.x + count_tabs(ln:sub(1, e.x)) * 3 - 1), monospace))
+   insert(buf, decoration.decorate(("^"):rep(#err_tk.tk), decoration.copy(decoration.scheme.error, monospace)))
+   insert(buf, decoration.decorate("\n   ", monospace))
+   insert(buf, prefix)
+   insert(buf, decoration.decorate(e.msg, decoration.scheme.error))
 
-   return str
+   for i, v in ipairs(buf) do
+      if type(v) == "string" then
+         buf[i] = decoration.decorate(v, monospace)
+      end
+   end
+
+   return buf
 end
 
 
 
 function common.report_errors(logger, errs, file, category)
-   logger(
-   common.make_error_header(file, #errs, category),
-   "\n",
-   _tl_table_unpack(util.tab.intersperse(map(errs, prettify_error), "\n\n")))
-
+   logger(_tl_table_unpack(common.make_error_header(file, #errs, category)))
+   for e in ivalues(errs) do
+      logger:cont(_tl_table_unpack(prettify_error(e)))
+   end
+   logger:cont("")
 end
 
 
@@ -277,9 +288,8 @@ function common.report_result(r, c)
       if arr and #arr > 0 then
          common.report_errors(logger, arr, r.filename, category)
          return false
-      else
-         return true
       end
+      return true
    end
 
    report(log.warn, warnings, "warning")
@@ -308,11 +318,6 @@ function common.init_teal_env(gen_compat, gen_target, env_def)
    return tl.init_env(false, gen_compat, gen_target, { env_def })
 end
 
-local pretty_print_ast = tl.pretty_print_ast
-function common.compile_ast(ast, mode)
-   return pretty_print_ast(ast, mode)
-end
-
 
 
 function common.report_config_errors(errs, warnings)
@@ -327,31 +332,32 @@ function common.report_config_errors(errs, warnings)
 end
 
 function common.type_check_and_load_file(path, env, c)
-   local result, err = tl.process(path, env)
+   local result, err = tl.check_file(path, env)
    if not result then
       return nil, err
    end
    if not common.report_result(result, c) then
       return nil
    end
-   return load(
-   pretty_print_ast(result.ast),
-   path,
-   "t",
-   _G)
 
+   local generated, gen_err = tl.generate(result.ast, tl.target_from_lua_version(_VERSION))
+   if not generated then
+      return nil, gen_err
+   end
+   return load(generated, path, "t", _G)
 end
 
 local found_modules = {}
 
 
 function common.search_module(name, search_dtl)
-   if not found_modules[name] then
+   local key = name .. ":" .. (search_dtl and "t" or "f")
+   if not found_modules[key] then
       local found, fd = tl.search_module(name, search_dtl)
       if found then fd:close() end
-      found_modules[name] = fs.path.new(found)
+      found_modules[key] = fs.path.new(found, false)
    end
-   return found_modules[name]
+   return found_modules[key]
 end
 
 
@@ -373,24 +379,6 @@ function common.prepend_to_lua_path(path_str)
    package.cpath
 end
 
-local old_tl_search_module = tl.search_module
-local substitutions = {}
-function common.add_module_substitute(source_dir, mod_name)
-   substitutions[source_dir] = "^" .. util.str.esc(mod_name)
-end
-
-tl.search_module = function(module_name, search_dtl)
-   for src, mod in pairs(substitutions) do
-      if module_name:match(mod) then
-         local a, b, c = old_tl_search_module(module_name:gsub(mod, src), search_dtl)
-         if a then
-            return a, b, c
-         end
-      end
-   end
-   return old_tl_search_module(module_name, search_dtl)
-end
-
 
 
 
@@ -399,10 +387,6 @@ function common.init_env_from_config(cfg)
    cfg = cfg or {}
    for dir in ivalues(cfg.include_dir or {}) do
       common.prepend_to_lua_path(dir)
-   end
-
-   if cfg.source_dir and cfg.module_name then
-      common.add_module_substitute(cfg.source_dir, cfg.module_name)
    end
 
    local env, err = common.init_teal_env(cfg.gen_compat, cfg.gen_target, cfg.global_env_def)

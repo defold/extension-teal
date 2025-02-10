@@ -35,6 +35,16 @@ function win32.quiet_stderr(cmd)
    return cmd.." 2> NUL"
 end
 
+function win32.execute_env(env, command, ...)
+   assert(type(command) == "string")
+   local cmdstr = {}
+   for var, val in pairs(env) do
+      table.insert(cmdstr, fs.export_cmd(var, val))
+   end
+   table.insert(cmdstr, fs.quote_args(command, ...))
+   return fs.execute_string(table.concat(cmdstr, " & "))
+end
+
 -- Split path into drive, root and the rest.
 -- Example: "c:\\hello\\world" becomes "c:" "\\" "hello\\world"
 -- if any part is missing from input, it becomes an empty string.
@@ -123,11 +133,11 @@ function win32.absolute_name(pathname, relative_to)
    local drive, root, rest = split_root(pathname)
    if root:match("[\\/]$") then
       -- It's an absolute path already. Ensure is not quoted.
-      return drive .. root .. rest
+      return dir.normalize(drive .. root .. rest)
    else
       -- It's a relative path, join it with base path.
       -- This drops drive letter from paths like "C:foo".
-      return relative_to .. "/" .. rest
+      return dir.path(relative_to, rest)
    end
 end
 
@@ -185,7 +195,7 @@ function win32.wrap_script(script, target, deps_mode, name, version, ...)
    end
 
    local argv = {
-      fs.Qb(dir.path(cfg.variables["LUA_BINDIR"], cfg.lua_interpreter)),
+      fs.Qb(cfg.variables["LUA"]),
       "-e",
       fs.Qb(table.concat(luainit, ";")),
       script and fs.Qb(script) or "%I%",
@@ -227,7 +237,7 @@ function win32.copy_binary(filename, dest)
    dest = dir.dir_name(dest)
    if base:match(exe_pattern) then
       base = base:gsub(exe_pattern, ".lua")
-      local helpname = dest.."/"..base
+      local helpname = dest.."\\"..base
       local helper = io.open(helpname, "w")
       if not helper then
          return nil, "Could not open "..helpname.." for writing."
@@ -321,23 +331,6 @@ function win32.is_writable(file)
    return result
 end
 
---- Create a temporary directory.
--- @param name_pattern string: name pattern to use for avoiding conflicts
--- when creating temporary directory.
--- @return string or (nil, string): name of temporary directory or (nil, error message) on failure.
-function win32.make_temp_dir(name_pattern)
-   assert(type(name_pattern) == "string")
-   name_pattern = dir.normalize(name_pattern)
-
-   local temp_dir = os.getenv("TMP") .. "/luarocks_" .. name_pattern:gsub("/", "_") .. "-" .. tostring(math.floor(math.random() * 10000))
-   local ok, err = fs.make_dir(temp_dir)
-   if ok then
-      return temp_dir
-   else
-      return nil, err
-   end
-end
-
 function win32.tmpname()
    local name = os.tmpname()
    local tmp = os.getenv("TMP")
@@ -356,7 +349,7 @@ function win32.is_superuser()
 end
 
 function win32.export_cmd(var, val)
-   return ("SET %s=%s"):format(var, val)
+   return ("SET %s"):format(fs.Q(var.."="..val))
 end
 
 function win32.system_cache_dir()
@@ -364,8 +357,22 @@ function win32.system_cache_dir()
 end
 
 function win32.search_in_path(program)
+   if program:match("\\") then
+      local fd = io.open(dir.path(program), "r")
+      if fd then
+         fd:close()
+         return true, program
+      end
+
+      return false
+   end
+
+   if not program:lower():match("exe$") then
+      program = program .. ".exe"
+   end
+
    for d in (os.getenv("PATH") or ""):gmatch("([^;]+)") do
-      local fd = io.open(dir.path(d, program .. ".exe"), "r")
+      local fd = io.open(dir.path(d, program), "r")
       if fd then
          fd:close()
          return true, d

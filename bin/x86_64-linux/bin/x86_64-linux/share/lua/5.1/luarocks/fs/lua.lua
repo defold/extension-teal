@@ -9,6 +9,7 @@ local fs = require("luarocks.fs")
 local cfg = require("luarocks.core.cfg")
 local dir = require("luarocks.dir")
 local util = require("luarocks.util")
+local vers = require("luarocks.core.vers")
 
 local pack = table.pack or function(...) return { n = select("#", ...), ... } end
 
@@ -27,6 +28,8 @@ end
 
 local patch = require("luarocks.tools.patch")
 local tar = require("luarocks.tools.tar")
+
+local dir_sep = package.config:sub(1, 1)
 
 local dir_stack = {}
 
@@ -54,7 +57,7 @@ function fs_lua.is_writable(file)
    return result
 end
 
-local function quote_args(command, ...)
+function fs_lua.quote_args(command, ...)
    local out = { command }
    local args = pack(...)
    for i=1, args.n do
@@ -74,7 +77,7 @@ end
 -- otherwise.
 function fs_lua.execute(command, ...)
    assert(type(command) == "string")
-   return fs.execute_string(quote_args(command, ...))
+   return fs.execute_string(fs.quote_args(command, ...))
 end
 
 --- Run the given command, quoting its arguments, silencing its output.
@@ -88,19 +91,19 @@ end
 function fs_lua.execute_quiet(command, ...)
    assert(type(command) == "string")
    if cfg.verbose then -- omit silencing output
-      return fs.execute_string(quote_args(command, ...))
+      return fs.execute_string(fs.quote_args(command, ...))
    else
-      return fs.execute_string(fs.quiet(quote_args(command, ...)))
+      return fs.execute_string(fs.quiet(fs.quote_args(command, ...)))
    end
 end
 
-function fs.execute_env(env, command, ...)
+function fs_lua.execute_env(env, command, ...)
    assert(type(command) == "string")
    local envstr = {}
    for var, val in pairs(env) do
       table.insert(envstr, fs.export_cmd(var, val))
    end
-   return fs.execute_string(table.concat(envstr, "\n") .. "\n" .. quote_args(command, ...))
+   return fs.execute_string(table.concat(envstr, "\n") .. "\n" .. fs.quote_args(command, ...))
 end
 
 local tool_available_cache = {}
@@ -126,7 +129,8 @@ function fs_lua.is_tool_available(tool_cmd, tool_name)
 
       -- if it looks like the tool has a pathname, try that first
       if tool_cmd_no_args:match("[/\\]") then
-         local fd = io.open(tool_cmd_no_args, "r")
+         local tool_cmd_no_args_normalized = dir.path(tool_cmd_no_args)
+         local fd = io.open(tool_cmd_no_args_normalized, "r")
          if fd then
             fd:close()
             ok = true
@@ -276,11 +280,44 @@ function fs_lua.system_temp_dir()
    return os.getenv("TMPDIR") or os.getenv("TEMP") or "/tmp"
 end
 
+local function temp_dir_pattern(name_pattern)
+   return dir.path(fs.system_temp_dir(),
+                   "luarocks_" .. dir.normalize(name_pattern):gsub("[/\\]", "_") .. "-")
+end
+
 ---------------------------------------------------------------------
 -- LuaFileSystem functions
 ---------------------------------------------------------------------
 
 if lfs_ok then
+
+function fs_lua.file_age(filename)
+   local attr = lfs.attributes(filename)
+   if attr and attr.change then
+      return os.difftime(os.time(), attr.change)
+   end
+   return math.huge
+end
+
+function fs_lua.lock_access(dirname, force)
+   fs.make_dir(dirname)
+   local lockfile = dir.path(dirname, "lockfile.lfs")
+
+   -- drop stale lock, older than 1 hour
+   local age = fs.file_age(lockfile)
+   if age > 3600 and age < math.huge then
+      force = true
+   end
+
+   if force then
+      os.remove(lockfile)
+   end
+   return lfs.lock_dir(dirname)
+end
+
+function fs_lua.unlock_access(lock)
+   return lock:free()
+end
 
 --- Run the given command.
 -- The command is executed in the current directory in the dir stack.
@@ -348,21 +385,23 @@ function fs_lua.make_dir(directory)
      path = directory:sub(1, 2)
      directory = directory:sub(4)
    else
-     if directory:match("^/") then
+     if directory:match("^" .. dir_sep) then
         path = ""
      end
    end
-   for d in directory:gmatch("([^/]+)/*") do
-      path = path and path .. "/" .. d or d
+   for d in directory:gmatch("([^" .. dir_sep .. "]+)" .. dir_sep .. "*") do
+      path = path and path .. dir_sep .. d or d
       local mode = lfs.attributes(path, "mode")
       if not mode then
          local ok, err = lfs.mkdir(path)
          if not ok then
             return false, err
          end
-         ok, err = fs.set_permissions(path, "exec", "all")
-         if not ok then
-            return false, err
+         if cfg.is_platform("unix") then
+            ok, err = fs.set_permissions(path, "exec", "all")
+            if not ok then
+               return false, err
+            end
          end
       elseif mode ~= "directory" then
          return false, path.." is not a directory"
@@ -433,7 +472,8 @@ function fs_lua.copy(src, dest, perms)
    while true do
       local block = src_h:read(8192)
       if not block then break end
-      dest_h:write(block)
+      local ok, err = dest_h:write(block)
+      if not ok then return nil, err end
    end
    src_h:close()
    dest_h:close()
@@ -445,10 +485,14 @@ function fs_lua.copy(src, dest, perms)
    if fullattrs and posix_ok then
       return posix.chmod(dest, fullattrs)
    else
-      if not perms then
-         perms = fullattrs:match("x") and "exec" or "read"
+      if cfg.is_platform("unix") then
+         if not perms then
+            perms = fullattrs:match("x") and "exec" or "read"
+         end
+         return fs.set_permissions(dest, perms, "all")
+      else
+         return true
       end
-      return fs.set_permissions(dest, perms, "all")
    end
 end
 
@@ -489,7 +533,8 @@ end
 -- @return boolean or (boolean, string): true on success, false on failure,
 -- plus an error message.
 function fs_lua.copy_contents(src, dest, perms)
-   assert(src and dest)
+   assert(src)
+   assert(dest)
    src = dir.normalize(src)
    dest = dir.normalize(dest)
    if not fs.is_dir(src) then
@@ -574,7 +619,7 @@ local function recursive_find(cwd, prefix, result)
          table.insert(result, item)
          local pathname = dir.path(cwd, file)
          if lfs.attributes(pathname, "mode") == "directory" then
-            recursive_find(pathname, item.."/", result)
+            recursive_find(pathname, item .. dir_sep, result)
          end
       end
    end
@@ -641,9 +686,12 @@ else -- if not lfs_ok
 
 function fs_lua.exists(file)
    assert(file)
-   file = dir.normalize(fs.absolute_name(file))
    -- check if file exists by attempting to open it
-   return util.exists(file)
+   return util.exists(fs.absolute_name(file))
+end
+
+function fs_lua.file_age(_)
+   return math.huge
 end
 
 end
@@ -710,6 +758,11 @@ if socket_ok then
 local ltn12 = require("ltn12")
 local luasec_ok, https = pcall(require, "ssl.https")
 
+if luasec_ok and not vers.compare_versions(https._VERSION, "1.0.3") then
+   luasec_ok = false
+   https = nil
+end
+
 local redirect_protocols = {
    http = http,
    https = luasec_ok and https,
@@ -774,7 +827,7 @@ local function request(url, method, http, loop_control)  -- luacheck: ignore 431
             loop_control[url] = true
             return request(location, method, redirect_protocols[protocol], loop_control)
          else
-            return nil, "URL redirected to unsupported protocol - install luasec to get HTTPS support.", "https"
+            return nil, "URL redirected to unsupported protocol - install luasec >= 1.1 to get HTTPS support.", "https"
          end
       end
       return nil, err
@@ -924,12 +977,12 @@ function fs_lua.download(url, filename, cache)
          return nil, err
       end
       if not downloader_warning then
-         util.warning("falling back to "..downloader.." - install luasec to get native HTTPS support")
+         util.warning("falling back to "..downloader.." - install luasec >= 1.1 to get native HTTPS support")
          downloader_warning = true
       end
       return fs.use_downloader(url, filename, cache)
    elseif not ok then
-      return nil, err
+      return nil, err, "network"
    end
    return true, filename, from_cache
 end
@@ -1017,17 +1070,9 @@ do
 end
 
 function fs_lua.set_permissions(filename, mode, scope)
-   local perms
-   if mode == "read" and scope == "user" then
-      perms = fs._unix_moderate_permissions("600")
-   elseif mode == "exec" and scope == "user" then
-      perms = fs._unix_moderate_permissions("700")
-   elseif mode == "read" and scope == "all" then
-      perms = fs._unix_moderate_permissions("644")
-   elseif mode == "exec" and scope == "all" then
-      perms = fs._unix_moderate_permissions("755")
-   else
-      return false, "Invalid permission " .. mode .. " for " .. scope
+   local perms, err = fs._unix_mode_scope_to_perms(mode, scope)
+   if err then
+      return false, err
    end
 
    -- LuaPosix (as of 5.1.15) does not support octal notation...
@@ -1057,9 +1102,8 @@ if posix.mkdtemp then
 -- @return string or (nil, string): name of temporary directory or (nil, error message) on failure.
 function fs_lua.make_temp_dir(name_pattern)
    assert(type(name_pattern) == "string")
-   name_pattern = dir.normalize(name_pattern)
 
-   return posix.mkdtemp(fs.system_temp_dir() .. "/luarocks_" .. name_pattern:gsub("/", "_") .. "-XXXXXX")
+   return posix.mkdtemp(temp_dir_pattern(name_pattern) .. "-XXXXXX")
 end
 
 end -- if posix.mkdtemp
@@ -1070,20 +1114,21 @@ end
 -- Other functions
 ---------------------------------------------------------------------
 
-if lfs_ok and not fs_lua.make_temp_dir then
+if not fs_lua.make_temp_dir then
 
 function fs_lua.make_temp_dir(name_pattern)
    assert(type(name_pattern) == "string")
-   name_pattern = dir.normalize(name_pattern)
 
-   local pattern = fs.system_temp_dir() .. "/luarocks_" .. name_pattern:gsub("/", "_") .. "-"
-
-   while true do
-      local name = pattern .. tostring(math.random(10000000))
-      if lfs.mkdir(name) then
+   local ok, err
+   for _ = 1, 3 do
+      local name = temp_dir_pattern(name_pattern) .. tostring(math.random(10000000))
+      ok, err = fs.make_dir(name)
+      if ok then
          return name
       end
    end
+
+   return nil, err
 end
 
 end
@@ -1125,6 +1170,27 @@ function fs_lua.move(src, dest, perms)
    return true
 end
 
+local function get_local_tree()
+   for _, tree in ipairs(cfg.rocks_trees) do
+      if type(tree) == "table" and tree.name == "user" then
+         return fs.absolute_name(tree.root)
+      end
+   end
+end
+
+local function is_local_tree_in_env(local_tree)
+   local lua_path
+   if _VERSION == "Lua 5.1" then
+      lua_path = os.getenv("LUA_PATH")
+   else
+      lua_path = os.getenv("LUA_PATH_" .. _VERSION:sub(5):gsub("%.", "_"))
+                 or os.getenv("LUA_PATH")
+   end
+   if lua_path and lua_path:match(local_tree, 1, true) then
+      return true
+   end
+end
+
 --- Check if user has write permissions for the command.
 -- Assumes the configuration variables under cfg have been previously set up.
 -- @param args table: the args table passed to run() drivers.
@@ -1133,6 +1199,9 @@ end
 function fs_lua.check_command_permissions(args)
    local ok = true
    local err = ""
+   if args._command_permissions_checked then
+      return true
+   end
    for _, directory in ipairs { cfg.rocks_dir, cfg.deploy_lua_dir, cfg.deploy_bin_dir, cfg.deploy_lua_dir } do
       if fs.exists(directory) then
          if not fs.is_writable(directory) then
@@ -1151,18 +1220,30 @@ function fs_lua.check_command_permissions(args)
          until parent == root or fs.exists(parent)
          if not fs.is_writable(parent) then
             ok = false
-            err = directory.." does not exist and your user does not have write permissions in " .. parent
+            err = directory.." does not exist\nand your user does not have write permissions in " .. parent
             break
          end
       end
    end
    if ok then
+      args._command_permissions_checked = true
       return true
    else
       if args["local"] or cfg.local_by_default then
-         err = err .. " \n-- please check your permissions."
+         err = err .. "\n\nPlease check your permissions.\n"
       else
-         err = err .. " \n-- you may want to run as a privileged user or use your local tree with --local."
+         local local_tree = get_local_tree()
+         if local_tree then
+            err = err .. "\n\nYou may want to run as a privileged user,"
+                      .. "\nor use --local to install into your local tree at " .. local_tree
+                      .. "\nor run 'luarocks config local_by_default true' to make --local the default.\n"
+
+            if not is_local_tree_in_env(local_tree) then
+               err = err .. "\n(You may need to configure your Lua package paths\nto use the local tree, see 'luarocks path --help')\n"
+            end
+         else
+            err = err .. "\n\nYou may want to run as a privileged user.\n"
+         end
       end
       return nil, err
    end
@@ -1175,7 +1256,7 @@ end
 -- @return boolean true, if it is a Lua script, false otherwise
 function fs_lua.is_lua(filename)
   filename = filename:gsub([[%\]],"/")   -- normalize on fw slash to prevent escaping issues
-  local lua = fs.Q(dir.path(cfg.variables["LUA_BINDIR"], cfg.lua_interpreter))  -- get lua interpreter configured
+  local lua = fs.Q(cfg.variables.LUA)  -- get lua interpreter configured
   -- execute on configured interpreter, might not be the same as the interpreter LR is run on
   local result = fs.execute_string(lua..[[ -e "if loadfile(']]..filename..[[') then os.exit(0) else os.exit(1) end"]])
   return (result == true)

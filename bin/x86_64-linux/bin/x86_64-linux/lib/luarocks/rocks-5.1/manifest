@@ -1,9 +1,15 @@
 commands = {
    cyan = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
+   },
+   luarocks = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks-admin"] = {
+      "luarocks/3.11.1-1"
    },
    tl = {
-      "tl/0.15.3-1"
+      "tl/0.24.4-1"
    }
 }
 dependencies = {
@@ -29,7 +35,7 @@ dependencies = {
       }
    },
    compat53 = {
-      ["0.13-1"] = {
+      ["0.14.4-1"] = {
          {
             constraints = {
                {
@@ -50,7 +56,7 @@ dependencies = {
       }
    },
    cyan = {
-      ["0.3.0-1"] = {
+      ["0.4.0-1"] = {
          {
             constraints = {},
             name = "argparse"
@@ -60,8 +66,26 @@ dependencies = {
             name = "luafilesystem"
          },
          {
-            constraints = {},
+            constraints = {
+               {
+                  op = ">=",
+                  version = {
+                     0, 24, 0, string = "0.24.0"
+                  }
+               }
+            },
             name = "tl"
+         },
+         {
+            constraints = {
+               {
+                  op = ">=",
+                  version = {
+                     0, 3, 0, string = "0.3.0"
+                  }
+               }
+            },
+            name = "luasystem"
          }
       }
    },
@@ -80,8 +104,26 @@ dependencies = {
          }
       }
    },
+   luarocks = {
+      ["3.11.1-1"] = {}
+   },
+   luasystem = {
+      ["0.4.5-1"] = {
+         {
+            constraints = {
+               {
+                  op = ">=",
+                  version = {
+                     5, 1, string = "5.1"
+                  }
+               }
+            },
+            name = "lua"
+         }
+      }
+   },
    tl = {
-      ["0.15.3-1"] = {
+      ["0.24.4-1"] = {
          {
             constraints = {
                {
@@ -96,10 +138,6 @@ dependencies = {
          {
             constraints = {},
             name = "argparse"
-         },
-         {
-            constraints = {},
-            name = "luafilesystem"
          }
       }
    }
@@ -108,146 +146,446 @@ modules = {
    argparse = {
       "argparse/0.7.1-1"
    },
+   ["compat53.file_mt"] = {
+      "compat53/0.14.4-1"
+   },
    ["compat53.init"] = {
-      "compat53/0.13-1"
+      "compat53/0.14.4-1"
    },
    ["compat53.io"] = {
-      "compat53/0.13-1"
+      "compat53/0.14.4-1"
    },
    ["compat53.module"] = {
-      "compat53/0.13-1"
+      "compat53/0.14.4-1"
    },
    ["compat53.string"] = {
-      "compat53/0.13-1"
+      "compat53/0.14.4-1"
    },
    ["compat53.table"] = {
-      "compat53/0.13-1"
+      "compat53/0.14.4-1"
    },
    ["compat53.utf8"] = {
-      "compat53/0.13-1"
-   },
-   ["cyan.ansi"] = {
-      "cyan/0.3.0-1"
+      "compat53/0.14.4-1"
    },
    ["cyan.cli"] = {
-      "cyan/0.3.0-1"
-   },
-   ["cyan.colorstring"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.command"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.commands.build"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.commands.check-gen"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.commands.initialize"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.commands.run"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.commands.warnings"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.config"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
+   },
+   ["cyan.decoration"] = {
+      "cyan/0.4.0-1"
    },
    ["cyan.fs.init"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.fs.path"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.graph"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
+   },
+   ["cyan.interaction"] = {
+      "cyan/0.4.0-1"
    },
    ["cyan.log"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.meta"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.sandbox"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.script"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.tlcommon"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan.util"] = {
-      "cyan/0.3.0-1"
-   },
-   ["cyan/ansi.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/cli.tl"] = {
-      "cyan/0.3.0-1"
-   },
-   ["cyan/colorstring.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/command.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/commands/build.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/commands/check-gen.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/commands/initialize.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/commands/run.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/commands/warnings.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/config.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
+   },
+   ["cyan/decoration.tl"] = {
+      "cyan/0.4.0-1"
    },
    ["cyan/fs/init.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/fs/path.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/graph.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
+   },
+   ["cyan/interaction.tl"] = {
+      "cyan/0.4.0-1"
    },
    ["cyan/log.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/meta.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/sandbox.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/script.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/tlcommon.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    ["cyan/util.tl"] = {
-      "cyan/0.3.0-1"
+      "cyan/0.4.0-1"
    },
    lfs = {
       "luafilesystem/1.8.0-1"
    },
+   ["luarocks.admin.cache"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.admin.cmd.add"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.admin.cmd.make_manifest"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.admin.cmd.refresh_cache"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.admin.cmd.remove"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.admin.index"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.build"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.build.builtin"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.build.cmake"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.build.command"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.build.make"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.build"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.config"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.doc"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.download"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.init"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.install"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.lint"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.list"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.make"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.new_version"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.pack"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.path"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.purge"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.remove"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.search"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.show"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.test"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.unpack"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.upload"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.which"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.cmd.write_rockspec"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.config"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.cfg"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.dir"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.manif"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.path"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.persist"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.sysdetect"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.util"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.core.vers"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.deplocks"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.deps"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.dir"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.download"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.cvs"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.git"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.git_file"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.git_http"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.git_https"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.git_ssh"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.hg"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.hg_http"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.hg_https"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.hg_ssh"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.sscm"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fetch.svn"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.linux"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.lua"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.macosx"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.tools"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.unix"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.unix.tools"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.win32"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fs.win32.tools"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.fun"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.loader"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.manif"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.manif.writer"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.pack"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.path"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.persist"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.queries"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.remove"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.repos"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.require"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.results"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.rockspecs"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.search"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.signing"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.test"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.test.busted"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.test.command"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.tools.patch"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.tools.tar"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.tools.zip"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.type.manifest"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.type.rockspec"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.type_check"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.upload.api"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.upload.multipart"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.util"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.vendor.argparse"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["luarocks.vendor.dkjson"] = {
+      "luarocks/3.11.1-1"
+   },
+   ["system.core"] = {
+      "luasystem/0.4.5-1"
+   },
+   ["system.init"] = {
+      "luasystem/0.4.5-1"
+   },
    tl = {
-      "tl/0.15.3-1"
+      "tl/0.24.4-1"
    },
    ["tl.tl"] = {
-      "tl/0.15.3-1"
+      "tl/0.24.4-1"
    }
 }
 repository = {
@@ -264,12 +602,13 @@ repository = {
       }
    },
    compat53 = {
-      ["0.13-1"] = {
+      ["0.14.4-1"] = {
          {
             arch = "installed",
             commands = {},
             dependencies = {},
             modules = {
+               ["compat53.file_mt"] = "compat53/file_mt.lua",
                ["compat53.init"] = "compat53/init.lua",
                ["compat53.io"] = "compat53/io.so",
                ["compat53.module"] = "compat53/module.lua",
@@ -281,7 +620,7 @@ repository = {
       }
    },
    cyan = {
-      ["0.3.0-1"] = {
+      ["0.4.0-1"] = {
          {
             arch = "installed",
             commands = {
@@ -289,14 +628,13 @@ repository = {
             },
             dependencies = {
                argparse = "0.7.1-1",
-               compat53 = "0.13-1",
+               compat53 = "0.14.4-1",
                luafilesystem = "1.8.0-1",
-               tl = "0.15.3-1"
+               luasystem = "0.4.5-1",
+               tl = "0.24.4-1"
             },
             modules = {
-               ["cyan.ansi"] = "cyan/ansi.lua",
                ["cyan.cli"] = "cyan/cli.lua",
-               ["cyan.colorstring"] = "cyan/colorstring.lua",
                ["cyan.command"] = "cyan/command.lua",
                ["cyan.commands.build"] = "cyan/commands/build.lua",
                ["cyan.commands.check-gen"] = "cyan/commands/check-gen.lua",
@@ -304,18 +642,18 @@ repository = {
                ["cyan.commands.run"] = "cyan/commands/run.lua",
                ["cyan.commands.warnings"] = "cyan/commands/warnings.lua",
                ["cyan.config"] = "cyan/config.lua",
+               ["cyan.decoration"] = "cyan/decoration.lua",
                ["cyan.fs.init"] = "cyan/fs/init.lua",
                ["cyan.fs.path"] = "cyan/fs/path.lua",
                ["cyan.graph"] = "cyan/graph.lua",
+               ["cyan.interaction"] = "cyan/interaction.lua",
                ["cyan.log"] = "cyan/log.lua",
                ["cyan.meta"] = "cyan/meta.lua",
                ["cyan.sandbox"] = "cyan/sandbox.lua",
                ["cyan.script"] = "cyan/script.lua",
                ["cyan.tlcommon"] = "cyan/tlcommon.lua",
                ["cyan.util"] = "cyan/util.lua",
-               ["cyan/ansi.tl"] = "cyan/ansi.tl",
                ["cyan/cli.tl"] = "cyan/cli.tl",
-               ["cyan/colorstring.tl"] = "cyan/colorstring.tl",
                ["cyan/command.tl"] = "cyan/command.tl",
                ["cyan/commands/build.tl"] = "cyan/commands/build.tl",
                ["cyan/commands/check-gen.tl"] = "cyan/commands/check-gen.tl",
@@ -323,9 +661,11 @@ repository = {
                ["cyan/commands/run.tl"] = "cyan/commands/run.tl",
                ["cyan/commands/warnings.tl"] = "cyan/commands/warnings.tl",
                ["cyan/config.tl"] = "cyan/config.tl",
+               ["cyan/decoration.tl"] = "cyan/decoration.tl",
                ["cyan/fs/init.tl"] = "cyan/fs/init.tl",
                ["cyan/fs/path.tl"] = "cyan/fs/path.tl",
                ["cyan/graph.tl"] = "cyan/graph.tl",
+               ["cyan/interaction.tl"] = "cyan/interaction.tl",
                ["cyan/log.tl"] = "cyan/log.tl",
                ["cyan/meta.tl"] = "cyan/meta.tl",
                ["cyan/sandbox.tl"] = "cyan/sandbox.tl",
@@ -348,8 +688,132 @@ repository = {
          }
       }
    },
+   luarocks = {
+      ["3.11.1-1"] = {
+         {
+            arch = "installed",
+            commands = {
+               luarocks = "luarocks",
+               ["luarocks-admin"] = "luarocks-admin"
+            },
+            dependencies = {},
+            modules = {
+               ["luarocks.admin.cache"] = "luarocks/admin/cache.lua",
+               ["luarocks.admin.cmd.add"] = "luarocks/admin/cmd/add.lua",
+               ["luarocks.admin.cmd.make_manifest"] = "luarocks/admin/cmd/make_manifest.lua",
+               ["luarocks.admin.cmd.refresh_cache"] = "luarocks/admin/cmd/refresh_cache.lua",
+               ["luarocks.admin.cmd.remove"] = "luarocks/admin/cmd/remove.lua",
+               ["luarocks.admin.index"] = "luarocks/admin/index.lua",
+               ["luarocks.build"] = "luarocks/build.lua",
+               ["luarocks.build.builtin"] = "luarocks/build/builtin.lua",
+               ["luarocks.build.cmake"] = "luarocks/build/cmake.lua",
+               ["luarocks.build.command"] = "luarocks/build/command.lua",
+               ["luarocks.build.make"] = "luarocks/build/make.lua",
+               ["luarocks.cmd"] = "luarocks/cmd.lua",
+               ["luarocks.cmd.build"] = "luarocks/cmd/build.lua",
+               ["luarocks.cmd.config"] = "luarocks/cmd/config.lua",
+               ["luarocks.cmd.doc"] = "luarocks/cmd/doc.lua",
+               ["luarocks.cmd.download"] = "luarocks/cmd/download.lua",
+               ["luarocks.cmd.init"] = "luarocks/cmd/init.lua",
+               ["luarocks.cmd.install"] = "luarocks/cmd/install.lua",
+               ["luarocks.cmd.lint"] = "luarocks/cmd/lint.lua",
+               ["luarocks.cmd.list"] = "luarocks/cmd/list.lua",
+               ["luarocks.cmd.make"] = "luarocks/cmd/make.lua",
+               ["luarocks.cmd.new_version"] = "luarocks/cmd/new_version.lua",
+               ["luarocks.cmd.pack"] = "luarocks/cmd/pack.lua",
+               ["luarocks.cmd.path"] = "luarocks/cmd/path.lua",
+               ["luarocks.cmd.purge"] = "luarocks/cmd/purge.lua",
+               ["luarocks.cmd.remove"] = "luarocks/cmd/remove.lua",
+               ["luarocks.cmd.search"] = "luarocks/cmd/search.lua",
+               ["luarocks.cmd.show"] = "luarocks/cmd/show.lua",
+               ["luarocks.cmd.test"] = "luarocks/cmd/test.lua",
+               ["luarocks.cmd.unpack"] = "luarocks/cmd/unpack.lua",
+               ["luarocks.cmd.upload"] = "luarocks/cmd/upload.lua",
+               ["luarocks.cmd.which"] = "luarocks/cmd/which.lua",
+               ["luarocks.cmd.write_rockspec"] = "luarocks/cmd/write_rockspec.lua",
+               ["luarocks.config"] = "luarocks/config.lua",
+               ["luarocks.core.cfg"] = "luarocks/core/cfg.lua",
+               ["luarocks.core.dir"] = "luarocks/core/dir.lua",
+               ["luarocks.core.manif"] = "luarocks/core/manif.lua",
+               ["luarocks.core.path"] = "luarocks/core/path.lua",
+               ["luarocks.core.persist"] = "luarocks/core/persist.lua",
+               ["luarocks.core.sysdetect"] = "luarocks/core/sysdetect.lua",
+               ["luarocks.core.util"] = "luarocks/core/util.lua",
+               ["luarocks.core.vers"] = "luarocks/core/vers.lua",
+               ["luarocks.deplocks"] = "luarocks/deplocks.lua",
+               ["luarocks.deps"] = "luarocks/deps.lua",
+               ["luarocks.dir"] = "luarocks/dir.lua",
+               ["luarocks.download"] = "luarocks/download.lua",
+               ["luarocks.fetch"] = "luarocks/fetch.lua",
+               ["luarocks.fetch.cvs"] = "luarocks/fetch/cvs.lua",
+               ["luarocks.fetch.git"] = "luarocks/fetch/git.lua",
+               ["luarocks.fetch.git_file"] = "luarocks/fetch/git_file.lua",
+               ["luarocks.fetch.git_http"] = "luarocks/fetch/git_http.lua",
+               ["luarocks.fetch.git_https"] = "luarocks/fetch/git_https.lua",
+               ["luarocks.fetch.git_ssh"] = "luarocks/fetch/git_ssh.lua",
+               ["luarocks.fetch.hg"] = "luarocks/fetch/hg.lua",
+               ["luarocks.fetch.hg_http"] = "luarocks/fetch/hg_http.lua",
+               ["luarocks.fetch.hg_https"] = "luarocks/fetch/hg_https.lua",
+               ["luarocks.fetch.hg_ssh"] = "luarocks/fetch/hg_ssh.lua",
+               ["luarocks.fetch.sscm"] = "luarocks/fetch/sscm.lua",
+               ["luarocks.fetch.svn"] = "luarocks/fetch/svn.lua",
+               ["luarocks.fs"] = "luarocks/fs.lua",
+               ["luarocks.fs.linux"] = "luarocks/fs/linux.lua",
+               ["luarocks.fs.lua"] = "luarocks/fs/lua.lua",
+               ["luarocks.fs.macosx"] = "luarocks/fs/macosx.lua",
+               ["luarocks.fs.tools"] = "luarocks/fs/tools.lua",
+               ["luarocks.fs.unix"] = "luarocks/fs/unix.lua",
+               ["luarocks.fs.unix.tools"] = "luarocks/fs/unix/tools.lua",
+               ["luarocks.fs.win32"] = "luarocks/fs/win32.lua",
+               ["luarocks.fs.win32.tools"] = "luarocks/fs/win32/tools.lua",
+               ["luarocks.fun"] = "luarocks/fun.lua",
+               ["luarocks.loader"] = "luarocks/loader.lua",
+               ["luarocks.manif"] = "luarocks/manif.lua",
+               ["luarocks.manif.writer"] = "luarocks/manif/writer.lua",
+               ["luarocks.pack"] = "luarocks/pack.lua",
+               ["luarocks.path"] = "luarocks/path.lua",
+               ["luarocks.persist"] = "luarocks/persist.lua",
+               ["luarocks.queries"] = "luarocks/queries.lua",
+               ["luarocks.remove"] = "luarocks/remove.lua",
+               ["luarocks.repos"] = "luarocks/repos.lua",
+               ["luarocks.require"] = "luarocks/require.lua",
+               ["luarocks.results"] = "luarocks/results.lua",
+               ["luarocks.rockspecs"] = "luarocks/rockspecs.lua",
+               ["luarocks.search"] = "luarocks/search.lua",
+               ["luarocks.signing"] = "luarocks/signing.lua",
+               ["luarocks.test"] = "luarocks/test.lua",
+               ["luarocks.test.busted"] = "luarocks/test/busted.lua",
+               ["luarocks.test.command"] = "luarocks/test/command.lua",
+               ["luarocks.tools.patch"] = "luarocks/tools/patch.lua",
+               ["luarocks.tools.tar"] = "luarocks/tools/tar.lua",
+               ["luarocks.tools.zip"] = "luarocks/tools/zip.lua",
+               ["luarocks.type.manifest"] = "luarocks/type/manifest.lua",
+               ["luarocks.type.rockspec"] = "luarocks/type/rockspec.lua",
+               ["luarocks.type_check"] = "luarocks/type_check.lua",
+               ["luarocks.upload.api"] = "luarocks/upload/api.lua",
+               ["luarocks.upload.multipart"] = "luarocks/upload/multipart.lua",
+               ["luarocks.util"] = "luarocks/util.lua",
+               ["luarocks.vendor.argparse"] = "luarocks/vendor/argparse.lua",
+               ["luarocks.vendor.dkjson"] = "luarocks/vendor/dkjson.lua"
+            }
+         }
+      }
+   },
+   luasystem = {
+      ["0.4.5-1"] = {
+         {
+            arch = "installed",
+            commands = {},
+            dependencies = {},
+            modules = {
+               ["system.core"] = "system/core.so",
+               ["system.init"] = "system/init.lua"
+            }
+         }
+      }
+   },
    tl = {
-      ["0.15.3-1"] = {
+      ["0.24.4-1"] = {
          {
             arch = "installed",
             commands = {
@@ -357,8 +821,7 @@ repository = {
             },
             dependencies = {
                argparse = "0.7.1-1",
-               compat53 = "0.13-1",
-               luafilesystem = "1.8.0-1"
+               compat53 = "0.14.4-1"
             },
             modules = {
                tl = "tl.lua",

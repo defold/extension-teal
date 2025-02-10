@@ -388,27 +388,6 @@ function util.deep_copy(tbl)
    return copy
 end
 
--- An ode to the multitude of JSON libraries out there...
-function util.require_json()
-   local list = { "cjson", "dkjson", "json" }
-   for _, lib in ipairs(list) do
-      local json_ok, json = pcall(require, lib)
-      if json_ok then
-         pcall(json.use_lpeg) -- optional feature in dkjson
-         return json_ok, json
-      end
-   end
-   local errmsg = "Failed loading "
-   for i, name in ipairs(list) do
-      if i == #list then
-         errmsg = errmsg .."and '"..name.."'. Use 'luarocks search <partial-name>' to search for a library and 'luarocks install <name>' to install one."
-      else
-         errmsg = errmsg .."'"..name.."', "
-      end
-   end
-   return nil, errmsg
-end
-
 -- A portable version of fs.exists that can be used at early startup,
 -- before the platform has been determined and luarocks.fs has been
 -- initialized.
@@ -434,11 +413,11 @@ do
       return '"' .. pathname .. '"'
    end
 
-   function util.check_lua_version(lua_exe, luaver)
-      if not util.exists(lua_exe) then
+   function util.check_lua_version(lua, luaver)
+      if not util.exists(lua) then
          return nil
       end
-      local lv, err = util.popen_read(Q(lua_exe) .. ' -e "io.write(_VERSION:sub(5))"')
+      local lv, err = util.popen_read(Q(lua) .. ' -e "io.write(_VERSION:sub(5))"')
       if lv == "" then
          return nil
       end
@@ -455,9 +434,14 @@ do
       end
       cfg.cache.luajit_version_checked = true
 
+      if not cfg.variables.LUA then
+         return nil
+      end
+
       local ljv
       if cfg.lua_version == "5.1" then
-         ljv = util.popen_read(Q(cfg.variables["LUA_BINDIR"] .. "/" .. cfg.lua_interpreter) .. ' -e "io.write(tostring(jit and jit.version:gsub([[^%S+ ]], [[]])))"')
+         -- Ignores extra version info for custom builds, e.g. "LuaJIT 2.1.0-beta3 some-other-version-info"
+         ljv = util.popen_read(Q(cfg.variables.LUA) .. ' -e "io.write(tostring(jit and jit.version:gsub([[^%S+ (%S+).*]], [[%1]])))"')
          if ljv == "nil" then
             ljv = nil
          end
@@ -501,17 +485,17 @@ do
          local dir_sep = package.config:sub(1, 1)
          for _, d in ipairs({ prefix .. dir_sep .. "bin", prefix }) do
             for _, name in ipairs(names) do
-               local lua_exe = d .. dir_sep .. name
-               local is_wrapper, err = util.lua_is_wrapper(lua_exe)
+               local lua = d .. dir_sep .. name
+               local is_wrapper, err = util.lua_is_wrapper(lua)
                if is_wrapper == false then
-                  local lv = util.check_lua_version(lua_exe, luaver)
+                  local lv = util.check_lua_version(lua, luaver)
                   if lv then
-                     return name, d, lv
+                     return lua, d, lv
                   end
                elseif is_wrapper == true or err == nil then
-                  table.insert(tried, lua_exe)
+                  table.insert(tried, lua)
                else
-                  table.insert(tried, string.format("%-13s (%s)", lua_exe, err))
+                  table.insert(tried, string.format("%-13s (%s)", lua, err))
                end
             end
          end
@@ -524,15 +508,15 @@ do
    end
 
    function util.find_lua(prefix, luaver, verbose)
-      local lua_interpreter, bindir
-      lua_interpreter, bindir, luaver = find_lua_bindir(prefix, luaver, verbose)
-      if not lua_interpreter then
+      local lua, bindir
+      lua, bindir, luaver = find_lua_bindir(prefix, luaver, verbose)
+      if not lua then
          return nil, bindir
       end
 
       return {
          lua_version = luaver,
-         lua_interpreter = lua_interpreter,
+         lua = lua,
          lua_dir = prefix,
          lua_bindir = bindir,
       }

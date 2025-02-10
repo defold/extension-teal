@@ -24,7 +24,7 @@ end
 
 
 function fs.chdir(p)
-   return lfs.chdir(ensure(p):to_real_path())
+   return lfs.chdir(ensure(p, false):to_real_path())
 end
 
 
@@ -33,7 +33,7 @@ end
 
 function fs.dir(dir, include_dotfiles)
    local iter, data = lfs.dir(
-   ensure(dir):to_real_path())
+   ensure(dir, false):to_real_path())
 
    return function()
       local p
@@ -42,7 +42,7 @@ function fs.dir(dir, include_dotfiles)
 
       until not p or
 (include_dotfiles and p ~= "." and p ~= "..") or
-p:sub(1, 1) ~= "."; return path.new(p)
+p:sub(1, 1) ~= "."; return path.new(p, false)
    end
 end
 
@@ -107,8 +107,8 @@ function fs.scan_dir(dir, include, exclude, include_directories)
       return inc ~= nil
    end
    local function dir_iter(_d)
-      local d = ensure(_d)
-      for p in fs.dir(d) do
+      local d = ensure(_d, false)
+      for p in fs.dir(d, false) do
 
          local full = #d > 0 and d .. p or
          p
@@ -145,16 +145,8 @@ function fs.extension_split(p, ndots)
    if not p then
       return nil
    end
-   local str_path = type(p) == "table" and p:to_real_path() or p
-   for n = ndots or 1, 1, -1 do
-      local patt = "^(.-)(" .. ("%.%a+"):rep(n) .. ")$"
-      local base, ext = str_path:match(patt)
-      if ext then
-         ext = ext:lower()
-         return base, ext
-      end
-   end
-   return str_path
+   local head, tail = ensure(p, false):extension_split(ndots)
+   return head:to_real_path(), tail
 end
 
 
@@ -197,7 +189,7 @@ function fs.copy(source, dest)
    if not source_contents then
       return false, read_err
    end
-   local fh, open_err = io.open(dest_path:to_real_path(), "r")
+   local fh, open_err = io.open(dest_path:to_real_path(), "w")
    if not fh then
       return false, open_err
    end

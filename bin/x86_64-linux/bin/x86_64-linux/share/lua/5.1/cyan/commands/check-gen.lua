@@ -1,19 +1,21 @@
-local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local io = _tl_compat and _tl_compat.io or io; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local table = _tl_compat and _tl_compat.table or table
+local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local io = _tl_compat and _tl_compat.io or io; local table = _tl_compat and _tl_compat.table or table
 
 
 
 
 local argparse = require("argparse")
 
+local tl = require("tl")
 local config = require("cyan.config")
 local common = require("cyan.tlcommon")
 local command = require("cyan.command")
-local cs = require("cyan.colorstring")
+local decoration = require("cyan.decoration")
 local log = require("cyan.log")
 local fs = require("cyan.fs")
 local util = require("cyan.util")
 
-local map_ipairs = util.tab.map_ipairs
+local map_ipairs, ivalues =
+util.tab.map_ipairs, util.tab.ivalues
 
 local function command_exec(should_compile)
    return function(args, loaded_config, starting_dir)
@@ -51,7 +53,7 @@ local function command_exec(should_compile)
       local current_dir = fs.cwd()
       local to_write = {}
       local function process_file(path)
-         local disp_file = cs.new(cs.colors.file, path:relative_to(starting_dir):tostring(), { 0 })
+         local disp_file = decoration.file_name(path:relative_to(starting_dir):tostring())
          if not path:is_file() then
             log.err(disp_file, " is not a file")
             exit = 1
@@ -60,11 +62,11 @@ local function command_exec(should_compile)
 
          local real_path = path:to_real_path()
          local outfile = get_output_filename(path)
-         local disp_outfile = cs.new(cs.colors.file, outfile:relative_to(starting_dir):tostring(), { 0 })
+         local disp_outfile = decoration.file_name(outfile:relative_to(starting_dir):tostring())
 
          local parsed, perr = common.parse_file(real_path)
          if not parsed then
-            log.err("Error parsing file ", disp_file .. "\n   " .. tostring(perr))
+            log.err("Error parsing file ", disp_file, "\n   ", tostring(perr))
             exit = 1
             return
          end
@@ -74,12 +76,15 @@ local function command_exec(should_compile)
             exit = 1
             return
          end
-         local result, err = common.type_check_ast(parsed.ast, {
-            filename = real_path,
-            env = env,
+
+         local result, err = tl.check(parsed.ast, real_path, {
+
+            feat_lax = "off",
+            feat_arity = loaded_config.feat_arity,
+
             gen_compat = loaded_config.gen_compat,
             gen_target = loaded_config.gen_target,
-         })
+         }, env)
          if not result then
             log.err("Could not type check ", disp_file, ":\n   ", err)
             exit = 1
@@ -120,10 +125,10 @@ local function command_exec(should_compile)
       if should_compile then
          if exit ~= 0 then return exit end
 
-         for _, data in ipairs(to_write) do
+         for data in ivalues(to_write) do
             local fh, err = io.open(data.outfile:to_real_path(), "w")
             if fh then
-               local generated, gen_err = common.compile_ast(data.output_ast, loaded_config.gen_target)
+               local generated, gen_err = tl.generate(data.output_ast, loaded_config.gen_target)
                if generated then
                   fh:write(generated, "\n")
                   fh:close()

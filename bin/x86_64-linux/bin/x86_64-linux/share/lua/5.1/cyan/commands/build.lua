@@ -1,4 +1,4 @@
-local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local coroutine = _tl_compat and _tl_compat.coroutine or coroutine; local io = _tl_compat and _tl_compat.io or io; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local os = _tl_compat and _tl_compat.os or os; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table; local _tl_table_unpack = unpack or table.unpack
+local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local coroutine = _tl_compat and _tl_compat.coroutine or coroutine; local io = _tl_compat and _tl_compat.io or io; local os = _tl_compat and _tl_compat.os or os; local pairs = _tl_compat and _tl_compat.pairs or pairs; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table; local _tl_table_unpack = unpack or table.unpack
 
 local argparse = require("argparse")
 local tl = require("tl")
@@ -6,7 +6,7 @@ local tl = require("tl")
 local command = require("cyan.command")
 local common = require("cyan.tlcommon")
 local config = require("cyan.config")
-local cs = require("cyan.colorstring")
+local decoration = require("cyan.decoration")
 local fs = require("cyan.fs")
 local graph = require("cyan.graph")
 local log = require("cyan.log")
@@ -19,7 +19,8 @@ local function exists_and_is_dir(prefix, p)
    if not p:exists() then
       log.err(string.format("%s %q does not exist", prefix, p:to_real_path()))
       return false
-   elseif not p:is_directory() then
+   end
+   if not p:is_directory() then
       log.err(string.format("%s %q is not a directory", prefix, p:to_real_path()))
       return false
    end
@@ -31,7 +32,7 @@ local function report_dep_errors(env, source_dir)
    local ok = true
    for name in ivalues(env.loaded_order) do
       local res = env.loaded[name]
-      if not fs.path.new(res.filename, true):is_in(source_dir) then
+      if not fs.path.new(res.filename, true):is_in(source_dir, false) then
          if (res.syntax_errors and #res.syntax_errors > 0) or #res.type_errors > 0 then
             if (res.syntax_errors and #res.syntax_errors > 0) then
                common.report_errors(log.err, res.syntax_errors, res.filename, "(Out of project) syntax error")
@@ -52,12 +53,12 @@ local function build(args, loaded_config, starting_dir)
       return 1
    end
 
-   local source_dir = fs.path.new(loaded_config.source_dir or "./")
+   local source_dir = fs.path.new(loaded_config.source_dir or "./", false)
    if not exists_and_is_dir("Source dir", source_dir) then
       return 1
    end
 
-   local build_dir = fs.path.new(loaded_config.build_dir or "./")
+   local build_dir = fs.path.new(loaded_config.build_dir or "./", false)
 
    if not build_dir:exists() then
       local succ, err = build_dir:mkdir()
@@ -97,10 +98,22 @@ local function build(args, loaded_config, starting_dir)
    end
    local exit = 0
 
-   log.debug("Built dependency graph")
+   if log.debug:should_log() then
+      log.debug("Built dependency graph")
+      for k, v in pairs(dag._nodes_by_filename) do
+         if not next(v.dependents) then
+            log.debug:cont("   ", k, " has no dependents")
+         else
+            log.debug:cont("   ", k, " has dependents:")
+            for dependent in pairs(v.dependents) do
+               log.debug:cont("      ", dependent.input:tostring())
+            end
+         end
+      end
+   end
 
    local function display_filename(f, trailing_slash)
-      return cs.highlight(cs.colors.file, f:relative_to(starting_dir):tostring() .. (trailing_slash and "/" or ""))
+      return decoration.file_name(f:relative_to(starting_dir):tostring() .. (trailing_slash and "/" or ""))
    end
 
    local function get_output_name(src)
@@ -140,10 +153,19 @@ local function build(args, loaded_config, starting_dir)
       return exit
    end
 
+   local type_check_options = {
+      feat_lax = "off",
+      feat_arity = loaded_config.feat_arity,
+
+      gen_compat = loaded_config.gen_compat,
+      gen_target = loaded_config.gen_target,
+   }
+
    local to_write = {}
    local function process_node(n, compile)
       local path = n.input:to_real_path()
       local disp_path = display_filename(n.input)
+      log.debug("processing node of ", disp_path, " for ", compile and "compilation" or "type check")
       local out = get_output_name(n.input)
       n.output = out
       local parsed, parse_err = common.parse_file(path)
@@ -158,10 +180,7 @@ local function build(args, loaded_config, starting_dir)
          return
       end
 
-      local result, check_ast_err = common.type_check_ast(parsed.ast, {
-         filename = path,
-         env = env,
-      })
+      local result, check_ast_err = tl.check(parsed.ast, path, type_check_options, env)
       if not result then
          log.err("Could not type check ", disp_path, ":\n   ", check_ast_err)
          exit = 1
@@ -174,6 +193,10 @@ local function build(args, loaded_config, starting_dir)
       end
 
       log.info("Type checked ", disp_path)
+      if args.check_only then
+         return
+      end
+
       local is_lua = select(2, fs.extension_split(path)) == ".lua"
       if compile and not (is_lua and dont_write_lua_files) then
          local ok, err = n.output:mk_parent_dirs()
@@ -186,16 +209,8 @@ local function build(args, loaded_config, starting_dir)
       end
    end
 
-   for n in dag:marked_nodes("typecheck") do
-      process_node(n, false)
-   end
-
-   if exit ~= 0 then
-      return exit
-   end
-
-   for n in dag:marked_nodes("compile") do
-      process_node(n, true)
+   for n in dag:marked_nodes() do
+      process_node(n, n.mark == "compile")
    end
 
    if exit ~= 0 then
@@ -214,7 +229,7 @@ local function build(args, loaded_config, starting_dir)
          log.err("Error opening file ", display_filename(n.output), ": ", err)
          exit = 1
       else
-         local generated, gen_err = common.compile_ast(ast, loaded_config.gen_target)
+         local generated, gen_err = tl.generate(ast, loaded_config.gen_target)
          if generated then
             fh:write(generated, "\n")
             fh:close()
@@ -274,19 +289,19 @@ local function build(args, loaded_config, starting_dir)
                   log.err("Unable to prune ", kind, " '", disp, "': ", err)
                end
             end
-            for _, p in ipairs(unexpected_files) do
+            for p in ivalues(unexpected_files) do
                prune(p, "file")
             end
-            for _, p in ipairs(unexpected_directories) do
+            for p in ivalues(unexpected_directories) do
                prune(p, "directory")
             end
          else
             local strs = {}
-            for _, p in ipairs(unexpected_files) do
+            for p in ivalues(unexpected_files) do
                table.insert(strs, "\n   ")
                table.insert(strs, display_filename(p))
             end
-            for _, p in ipairs(unexpected_directories) do
+            for p in ivalues(unexpected_directories) do
                table.insert(strs, "\n   ")
                table.insert(strs, display_filename(p, true))
             end

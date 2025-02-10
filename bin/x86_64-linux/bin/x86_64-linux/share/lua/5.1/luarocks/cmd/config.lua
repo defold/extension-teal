@@ -3,11 +3,13 @@
 local config_cmd = {}
 
 local persist = require("luarocks.persist")
+local config = require("luarocks.config")
 local cfg = require("luarocks.core.cfg")
 local util = require("luarocks.util")
 local deps = require("luarocks.deps")
 local dir = require("luarocks.dir")
 local fs = require("luarocks.fs")
+local json = require("luarocks.vendor.dkjson")
 
 function config_cmd.add_to_parser(parser)
    local cmd = parser:command("config", [[
@@ -18,7 +20,6 @@ Query information about the LuaRocks configuration.
   any command-line flags passed)
 
   Examples:
-     luarocks config lua_interpreter
      luarocks config variables.LUA_INCDIR
      luarocks config lua_version
 
@@ -82,28 +83,6 @@ local function config_file(conf)
    end
 end
 
-local cfg_skip = {
-   errorcodes = true,
-   flags = true,
-   platforms = true,
-   root_dir = true,
-   upload_servers = true,
-}
-
-local function should_skip(k, v)
-   return type(v) == "function" or cfg_skip[k]
-end
-
-local function cleanup(tbl)
-   local copy = {}
-   for k, v in pairs(tbl) do
-      if not should_skip(k, v) then
-         copy[k] = v
-      end
-   end
-   return copy
-end
-
 local function traverse_varstring(var, tbl, fn, missing_parent)
    local k, r = var:match("^%[([0-9]+)%]%.(.*)$")
    if k then
@@ -136,11 +115,6 @@ local function traverse_varstring(var, tbl, fn, missing_parent)
 end
 
 local function print_json(value)
-   local json_ok, json = util.require_json()
-   if not json_ok then
-      return nil, "A JSON library is required for this command. "..json
-   end
-
    print(json.encode(value))
    return true
 end
@@ -152,7 +126,7 @@ local function print_entry(var, tbl, is_json)
       end
       local val = t[k]
 
-      if not should_skip(var, val) then
+      if not config.should_skip(var, val) then
          if is_json then
             return print_json(val)
          elseif type(val) == "string" then
@@ -180,7 +154,9 @@ local function write_entries(keys, scope, do_unset)
       return nil, "Current directory is not part of a project. You may want to run `luarocks init`."
    end
 
-   local tbl, err = persist.load_config_file_if_basic(cfg.config_files[scope].file, cfg)
+   local file_name = cfg.config_files[scope].file
+
+   local tbl, err = persist.load_config_file_if_basic(file_name, cfg)
    if not tbl then
       return nil, err
    end
@@ -210,18 +186,27 @@ local function write_entries(keys, scope, do_unset)
       end)
    end
 
-   local ok, err = persist.save_from_table(cfg.config_files[scope].file, tbl)
+   local ok, err = fs.make_dir(dir.dir_name(file_name))
+   if not ok then
+      return nil, err
+   end
+
+   ok, err = persist.save_from_table(file_name, tbl)
    if ok then
       print(do_unset and "Removed" or "Wrote")
       for var, val in util.sortedpairs(keys) do
          if do_unset then
             print(("\t%s"):format(var))
          else
-            print(("\t%s = %q"):format(var, val))
+            if type(val) == "string" then
+               print(("\t%s = %q"):format(var, val))
+            else
+               print(("\t%s = %s"):format(var, tostring(val)))
+            end
          end
       end
       print(do_unset and "from" or "to")
-      print("\t" .. cfg.config_files[scope].file)
+      print("\t" .. file_name)
       return true
    else
       return nil, err
@@ -233,15 +218,63 @@ local function get_scope(args)
           or (args["local"] and "user")
           or (args.project_tree and "project")
           or (cfg.local_by_default and "user")
-          or (fs.is_writable(cfg.config_files["system"].file and "system"))
+          or (fs.is_writable(cfg.config_files["system"].file) and "system")
           or "user"
+end
+
+local function report_on_lua_incdir_config(value, lua_version)
+   local variables = {
+      ["LUA_DIR"] = cfg.variables.LUA_DIR,
+      ["LUA_BINDIR"] = cfg.variables.LUA_BINDIR,
+      ["LUA_INCDIR"] = value,
+      ["LUA_LIBDIR"] = cfg.variables.LUA_LIBDIR,
+      ["LUA"] = cfg.variables.LUA,
+   }
+
+   local ok, err = deps.check_lua_incdir(variables, lua_version)
+   if not ok then
+      util.printerr()
+      util.warning((err:gsub(" You can use.*", "")))
+   end
+   return ok
+end
+
+local function report_on_lua_libdir_config(value, lua_version)
+   local variables = {
+      ["LUA_DIR"] = cfg.variables.LUA_DIR,
+      ["LUA_BINDIR"] = cfg.variables.LUA_BINDIR,
+      ["LUA_INCDIR"] = cfg.variables.LUA_INCDIR,
+      ["LUA_LIBDIR"] = value,
+      ["LUA"] = cfg.variables.LUA,
+   }
+
+   local ok, err, _, err_files = deps.check_lua_libdir(variables, lua_version)
+   if not ok then
+      util.printerr()
+      util.warning((err:gsub(" You can use.*", "")))
+      util.printerr("Tried:")
+      for _, l in pairs(err_files or {}) do
+         for _, d in ipairs(l) do
+            util.printerr("\t" .. d)
+         end
+      end
+   end
+   return ok
+end
+
+local function warn_bad_c_config()
+   util.printerr()
+   util.printerr("LuaRocks may not work correctly when building C modules using this configuration.")
+   util.printerr()
 end
 
 --- Driver function for "config" command.
 -- @return boolean: True if succeeded, nil on errors.
 function config_cmd.command(args)
-   deps.check_lua_incdir(cfg.variables, args.lua_version or cfg.lua_version)
-   deps.check_lua_libdir(cfg.variables, args.lua_version or cfg.lua_version)
+   local lua_version = args.lua_version or cfg.lua_version
+
+   deps.check_lua_incdir(cfg.variables, lua_version)
+   deps.check_lua_libdir(cfg.variables, lua_version)
 
    -- deprecated flags
    if args.lua_incdir then
@@ -280,7 +313,12 @@ function config_cmd.command(args)
          return nil, "Current directory is not part of a project. You may want to run `luarocks init`."
       end
 
-      local prefix = dir.dir_name(cfg.config_files[scope].file)
+      local location = cfg.config_files[scope]
+      if (not location) or (not location.file) then
+         return nil, "could not get config file location for " .. tostring(scope) .. " scope"
+      end
+
+      local prefix = dir.dir_name(location.file)
       local ok, err = persist.save_default_lua_version(prefix, args.value)
       if not ok then
          return nil, "could not set default Lua version: " .. err
@@ -295,30 +333,58 @@ function config_cmd.command(args)
          ["variables.LUA_BINDIR"] = cfg.variables.LUA_BINDIR,
          ["variables.LUA_INCDIR"] = cfg.variables.LUA_INCDIR,
          ["variables.LUA_LIBDIR"] = cfg.variables.LUA_LIBDIR,
-         ["lua_interpreter"] = cfg.lua_interpreter,
+         ["variables.LUA"] = cfg.variables.LUA,
       }
       if args.lua_version then
          local prefix = dir.dir_name(cfg.config_files[scope].file)
          persist.save_default_lua_version(prefix, args.lua_version)
       end
-      return write_entries(keys, scope, args.unset)
+      local ok, err = write_entries(keys, scope, args.unset)
+      if ok then
+         local inc_ok = report_on_lua_incdir_config(cfg.variables.LUA_INCDIR, lua_version)
+         local lib_ok = ok and report_on_lua_libdir_config(cfg.variables.LUA_LIBDIR, lua_version)
+         if not (inc_ok and lib_ok) then
+            warn_bad_c_config()
+         end
+      end
+
+      return ok, err
    end
 
    if args.key then
+      if args.key:match("^[A-Z]") then
+         args.key = "variables." .. args.key
+      end
+
       if args.value or args.unset then
          local scope = get_scope(args)
-         return write_entries({ [args.key] = args.value or args.unset }, scope, args.unset)
+
+         local ok, err = write_entries({ [args.key] = args.value or args.unset }, scope, args.unset)
+
+         if ok then
+            if args.key == "variables.LUA_INCDIR" then
+               local ok = report_on_lua_incdir_config(args.value, lua_version)
+               if not ok then
+                  warn_bad_c_config()
+               end
+            elseif args.key == "variables.LUA_LIBDIR" then
+               local ok = report_on_lua_libdir_config(args.value, lua_version)
+               if not ok then
+                  warn_bad_c_config()
+               end
+            end
+         end
+
+         return ok, err
       else
          return print_entry(args.key, cfg, args.json)
       end
    end
 
-   local cleancfg = cleanup(cfg)
-
    if args.json then
-      return print_json(cleancfg)
+      return print_json(config.get_config_for_display(cfg))
    else
-      print(persist.save_from_table_to_string(cleancfg))
+      print(config.to_string(cfg))
       return true
    end
 end

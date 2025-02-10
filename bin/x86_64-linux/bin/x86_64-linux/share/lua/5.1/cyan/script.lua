@@ -5,7 +5,7 @@ local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 th
 local tl = require("tl")
 
 local command = require("cyan.command")
-local cs = require("cyan.colorstring")
+local decoration = require("cyan.decoration")
 local fs = require("cyan.fs")
 local log = require("cyan.log")
 local sandbox = require("cyan.sandbox")
@@ -38,13 +38,13 @@ end
 local load_cache = {}
 local function load_script(path)
    if not load_cache[path] then
-      log.extra("Loading script: ", cs.highlight(cs.colors.file, path))
-      local p = fs.path.new(path)
+      log.extra("Loading script: ", decoration.file_name(path))
+      local p = fs.path.new(path, false)
 
       local box, err
       local _, ext = fs.extension_split(p)
       if ext == ".tl" then
-         local result, proc_err = tl.process(path)
+         local result, proc_err = tl.check_file(path, nil)
          if not result then
             return nil, proc_err
          end
@@ -52,7 +52,12 @@ local function load_script(path)
             #result.type_errors > 0 then
             return nil, result
          end
-         box, err = sandbox.from_string(tl.pretty_print_ast(result.ast), path, _G)
+         local generated
+         generated, err = tl.generate(result.ast, tl.target_from_lua_version(_VERSION))
+         if not generated then
+            return nil, err
+         end
+         box, err = sandbox.from_string(generated, path, _G)
       else
          box, err = sandbox.from_file(path, _G)
       end
@@ -90,7 +95,6 @@ function script.register(path, command_name, hooks)
       registered[command_name] = {}
    end
    local reg = registered[command_name]
-
    for hook in ivalues((type(hooks) == "string" and { hooks } or hooks)) do
       if not reg[hook] then
          reg[hook] = {}
@@ -147,7 +151,7 @@ function script.emitter(name, ...)
          local loaded = assert(load_cache[path], "Internal error, script was not preloaded before execution")
          local res, err = loaded(full, _tl_table_unpack(args, 1, args.n))
          coroutine.yield(
-         fs.path.new(path),
+         fs.path.new(path, false),
          res == 0,
          err)
 
@@ -163,9 +167,9 @@ function script.emit_hook(name, ...)
    log.debug("             ^ With ", select("#", ...), " argument(s): ", ...)
    for s, ok, err in script.emitter(name, ...) do
       if ok then
-         log.info("Ran script ", cs.highlight(cs.colors.file, s:to_real_path()))
+         log.info("Ran script ", decoration.file_name(s:to_real_path()))
       else
-         log.err("Error in script ", cs.highlight(cs.colors.file, s:to_real_path()), ":\n   ", err)
+         log.err("Error in script ", decoration.file_name(s:to_real_path()), ":\n   ", err)
          return false, err
       end
    end

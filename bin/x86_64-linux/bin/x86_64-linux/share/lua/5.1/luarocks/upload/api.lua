@@ -7,6 +7,8 @@ local dir = require("luarocks.dir")
 local util = require("luarocks.util")
 local persist = require("luarocks.persist")
 local multipart = require("luarocks.upload.multipart")
+local json = require("luarocks.vendor.dkjson")
+local dir_sep = package.config:sub(1, 1)
 
 local Api = {}
 
@@ -14,7 +16,7 @@ local function upload_config_file()
    if not cfg.config_files.user.file then
       return nil
    end
-   return (cfg.config_files.user.file:gsub("/[^/]+$", "/upload_config.lua"))
+   return (cfg.config_files.user.file:gsub("[\\/][^\\/]+$", dir_sep .. "upload_config.lua"))
 end
 
 function Api:load_config()
@@ -118,8 +120,6 @@ if not ltn12_ok then -- If not using LuaSocket and/or LuaSec...
 
 function Api:request(url, params, post_params)
    local vars = cfg.variables
-   local json_ok, json = util.require_json()
-   if not json_ok then return nil, "A JSON library is required for this command. "..json end
 
    if fs.which_tool("downloader") == "wget" then
       local curl_ok, err = fs.is_tool_available(vars.CURL, "curl")
@@ -139,7 +139,7 @@ function Api:request(url, params, post_params)
    local tmpfile = fs.tmpname()
    if post_params then
       method = "POST"
-      local curl_cmd = vars.CURL.." -f -k -L --silent --user-agent \""..cfg.user_agent.." via curl\" "
+      local curl_cmd = vars.CURL.." "..vars.CURLNOCERTFLAG.." -f -L --silent --user-agent \""..cfg.user_agent.." via curl\" "
       for k,v in pairs(post_params) do
          local var = v
          if type(v) == "table" then
@@ -182,8 +182,6 @@ else -- use LuaSocket and LuaSec
 local warned_luasec = false
 
 function Api:request(url, params, post_params)
-   local json_ok, json = util.require_json()
-   if not json_ok then return nil, "A JSON library is required for this command. "..json end
    local server = tostring(self.config.server)
    local http_ok, http
    local via = "luasocket"

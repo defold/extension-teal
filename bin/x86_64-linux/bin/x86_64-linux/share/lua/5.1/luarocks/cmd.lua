@@ -3,13 +3,14 @@
 local cmd = {}
 
 local manif = require("luarocks.manif")
+local config = require("luarocks.config")
 local util = require("luarocks.util")
 local path = require("luarocks.path")
 local cfg = require("luarocks.core.cfg")
 local dir = require("luarocks.dir")
 local fun = require("luarocks.fun")
 local fs = require("luarocks.fs")
-local argparse = require("luarocks.argparse")
+local argparse = require("luarocks.vendor.argparse")
 
 local unpack = table.unpack or unpack
 local pack = table.pack or function(...) return { n = select("#", ...), ... } end
@@ -26,6 +27,7 @@ cmd.errorcodes = {
    UNSPECIFIED = 1,
    PERMISSIONDENIED = 2,
    CONFIGFILE = 3,
+   LOCK = 4,
    CRASH = 99
 }
 
@@ -62,27 +64,34 @@ do
       cfg.deploy_lib_dir = cfg.deploy_lib_dir:gsub("/+$", "")
    end
 
+   local function set_named_tree(args, name)
+      for _, tree in ipairs(cfg.rocks_trees) do
+         if type(tree) == "table" and name == tree.name then
+            if not tree.root then
+               return nil, "Configuration error: tree '"..tree.name.."' has no 'root' field."
+            end
+            replace_tree(args, tree.root, tree)
+            return true
+         end
+      end
+      return false
+   end
+
    process_tree_args = function(args, project_dir)
 
       if args.global then
-         cfg.local_by_default = false
-      end
-
-      if args.tree then
-         local named = false
-         for _, tree in ipairs(cfg.rocks_trees) do
-            if type(tree) == "table" and args.tree == tree.name then
-               if not tree.root then
-                  return nil, "Configuration error: tree '"..tree.name.."' has no 'root' field."
-               end
-               replace_tree(args, tree.root, tree)
-               named = true
-               break
-            end
+         local ok, err = set_named_tree(args, "system")
+         if not ok then
+            return nil, err
          end
+      elseif args.tree then
+         local named = set_named_tree(args, args.tree)
          if not named then
             local root_dir = fs.absolute_name(args.tree)
             replace_tree(args, root_dir)
+            if (args.deps_mode or cfg.deps_mode) ~= "order" then
+               table.insert(cfg.rocks_trees, 1, { name = "arg", root = root_dir } )
+            end
          end
       elseif args["local"] then
          if fs.is_superuser() then
@@ -90,7 +99,10 @@ do
                "You are running as a superuser, which is intended for system-wide operation.\n"..
                "To force using the superuser's home, use --tree explicitly."
          else
-            replace_tree(args, cfg.home_tree)
+            local ok, err = set_named_tree(args, "user")
+            if not ok then
+               return nil, err
+            end
          end
       elseif args.project_tree then
          local tree = args.project_tree
@@ -98,8 +110,9 @@ do
          manif.load_rocks_tree_manifests()
          path.use_tree(tree)
       elseif cfg.local_by_default then
-         if cfg.home_tree then
-            replace_tree(args, cfg.home_tree)
+         local ok, err = set_named_tree(args, "user")
+         if not ok then
+            return nil, err
          end
       elseif project_dir then
          local project_tree = project_dir .. "/lua_modules"
@@ -180,19 +193,16 @@ local function die(message, exitcode)
    os.exit(exitcode or cmd.errorcodes.UNSPECIFIED)
 end
 
-local function search_lua_in_path(lua_version, verbose)
+local function search_lua(lua_version, verbose, search_at)
+   if search_at then
+      return util.find_lua(search_at, lua_version, verbose)
+   end
+
    local path_sep = (package.config:sub(1, 1) == "\\" and ";" or ":")
    local all_tried = {}
    for bindir in (os.getenv("PATH") or ""):gmatch("[^"..path_sep.."]+") do
-      local parentdir = dir.path((bindir:gsub("[\\/][^\\/]+[\\/]?$", "")))
-      local detected, tried = util.find_lua(parentdir, lua_version)
-      if detected then
-         return detected
-      else
-         table.insert(all_tried, tried)
-      end
-      bindir = dir.path(bindir)
-      detected = util.find_lua(bindir, lua_version)
+      local searchdir = (bindir:gsub("[\\/]+bin[\\/]?$", ""))
+      local detected, tried = util.find_lua(searchdir, lua_version)
       if detected then
          return detected
       else
@@ -216,7 +226,7 @@ do
             local try = "."
             for _ = 1, 10 do -- FIXME detect when root dir was hit instead
                if util.exists(try .. "/.luarocks") and util.exists(try .. "/lua_modules") then
-                  return try, false
+                  return dir.normalize(try), false
                elseif util.exists(try .. "/.luarocks-no-project") then
                   break
                end
@@ -280,7 +290,7 @@ do
          end
 
          if lua_version then
-            local detected = search_lua_in_path(lua_version)
+            local detected = search_lua(lua_version)
             if detected then
                return detected
             end
@@ -332,14 +342,18 @@ Variables:
 
 ]]
 
-local function get_status(status)
-   return status and "ok" or "not found"
+local lua_example = package.config:sub(1, 1) == "\\"
+                    and "<d:\\path\\lua.exe>"
+                    or  "</path/lua>"
+
+local function show_status(file, status, err)
+   return (file and file .. " " or "") .. (status and "(ok)" or ("(" .. (err or "not found") ..")"))
 end
 
-local function use_to_fix_location(key)
+local function use_to_fix_location(key, what)
    local buf =  "                   ****************************************\n"
    buf = buf .. "                   Use the command\n\n"
-   buf = buf .. "                      luarocks config " .. key .. " <dir>\n\n"
+   buf = buf .. "                      luarocks config " .. key .. " " .. (what or "<dir>") .. "\n\n"
    buf = buf .. "                   to fix the location\n"
    buf = buf .. "                   ****************************************\n"
    return buf
@@ -350,9 +364,7 @@ local function get_config_text(cfg)  -- luacheck: ignore 431
 
    local libdir_ok = deps.check_lua_libdir(cfg.variables)
    local incdir_ok = deps.check_lua_incdir(cfg.variables)
-   local bindir_ok = fs.exists(cfg.variables.LUA_BINDIR)
-   local luadir_ok = fs.exists(cfg.variables.LUA_DIR)
-   local lua_ok = fs.exists(cfg.variables.LUA)
+   local lua_ok = cfg.variables.LUA and fs.exists(cfg.variables.LUA)
 
    local buf = "Configuration:\n"
    buf = buf.."   Lua:\n"
@@ -360,31 +372,29 @@ local function get_config_text(cfg)  -- luacheck: ignore 431
    if cfg.luajit_version then
       buf = buf.."      LuaJIT     : "..cfg.luajit_version.."\n"
    end
-   buf = buf.."      Interpreter: "..(cfg.variables.LUA or "").." ("..get_status(lua_ok)..")\n"
-   buf = buf.."      LUA_DIR    : "..(cfg.variables.LUA_DIR or "").." ("..get_status(luadir_ok)..")\n"
+   buf = buf.."      LUA        : "..show_status(cfg.variables.LUA, lua_ok, "interpreter not found").."\n"
    if not lua_ok then
-      buf = buf .. use_to_fix_location("lua_dir")
+      buf = buf .. use_to_fix_location("variables.LUA", lua_example)
    end
-   buf = buf.."      LUA_BINDIR : "..(cfg.variables.LUA_BINDIR or "").." ("..get_status(bindir_ok)..")\n"
-   buf = buf.."      LUA_INCDIR : "..(cfg.variables.LUA_INCDIR or "").." ("..get_status(incdir_ok)..")\n"
+   buf = buf.."      LUA_INCDIR : "..show_status(cfg.variables.LUA_INCDIR, incdir_ok, "lua.h not found").."\n"
    if lua_ok and not incdir_ok then
       buf = buf .. use_to_fix_location("variables.LUA_INCDIR")
    end
-   buf = buf.."      LUA_LIBDIR : "..(cfg.variables.LUA_LIBDIR or "").." ("..get_status(libdir_ok)..")\n"
+   buf = buf.."      LUA_LIBDIR : "..show_status(cfg.variables.LUA_LIBDIR, libdir_ok, "Lua library itself not found").."\n"
    if lua_ok and not libdir_ok then
       buf = buf .. use_to_fix_location("variables.LUA_LIBDIR")
    end
 
    buf = buf.."\n   Configuration files:\n"
    local conf = cfg.config_files
-   buf = buf.."      System  : "..fs.absolute_name(conf.system.file).." ("..get_status(conf.system.found)..")\n"
+   buf = buf.."      System  : "..show_status(fs.absolute_name(conf.system.file), conf.system.found).."\n"
    if conf.user.file then
-      buf = buf.."      User    : "..fs.absolute_name(conf.user.file).." ("..get_status(conf.user.found)..")\n"
+      buf = buf.."      User    : "..show_status(fs.absolute_name(conf.user.file), conf.user.found).."\n"
    else
       buf = buf.."      User    : disabled in this LuaRocks installation.\n"
    end
    if conf.project then
-      buf = buf.."      Project : "..fs.absolute_name(conf.project.file).." ("..get_status(conf.project.found)..")\n"
+      buf = buf.."      Project : "..show_status(fs.absolute_name(conf.project.file), conf.project.found).."\n"
    end
    buf = buf.."\n   Rocks trees in use: \n"
    for _, tree in ipairs(cfg.rocks_trees) do
@@ -474,6 +484,8 @@ Enabling completion for Fish:
       "To enable it, see '"..program.." help path'.")
    parser:flag("--global", "Use the system tree when `local_by_default` is `true`.")
    parser:flag("--no-project", "Do not use project tree even if running from a project folder.")
+   parser:flag("--force-lock", "Attempt to overwrite the lock for commands " ..
+      "that require exclusive access, such as 'install'")
    parser:flag("--verbose", "Display verbose output of commands executed.")
    parser:option("--timeout", "Timeout on network operations, in seconds.\n"..
       "0 means no timeout (wait forever). Default is "..
@@ -489,6 +501,19 @@ Enabling completion for Fish:
    end
 
    return parser
+end
+
+local function get_first_arg()
+   if not arg then
+      return
+   end
+   local first_arg = arg[0]
+   local i = -1
+   while arg[i] do
+      first_arg = arg[i]
+      i = i -1
+   end
+   return first_arg
 end
 
 --- Main command-line processor.
@@ -538,7 +563,7 @@ function cmd.run_command(description, commands, external_namespace, ...)
             util.warning("command module " .. module .. " does not implement command(), skipping")
          end
       else
-         util.warning("failed to load command module " .. module)
+         util.warning("failed to load command module " .. module .. ": " .. mod)
       end
    end
 
@@ -604,20 +629,49 @@ function cmd.run_command(description, commands, external_namespace, ...)
    -- try again now.
    local tried
    if not lua_found then
-      if cfg.variables.LUA_DIR then
-         lua_found, tried = util.find_lua(cfg.variables.LUA_DIR, cfg.lua_version, args.verbose)
+      local detected
+      detected, tried = search_lua(cfg.lua_version, args.verbose, cfg.variables.LUA_DIR)
+      if detected then
+         lua_found = true
+         cfg.variables.LUA = detected.lua
+         cfg.variables.LUA_DIR = detected.lua_dir
+         cfg.variables.LUA_BINDIR = detected.lua_bindir
+         if args.lua_dir then
+            cfg.variables.LUA_INCDIR = nil
+            cfg.variables.LUA_LIBDIR = nil
+         end
       else
-         lua_found, tried = search_lua_in_path(cfg.lua_version, args.verbose)
+         cfg.variables.LUA = nil
+         cfg.variables.LUA_DIR = nil
+         cfg.variables.LUA_BINDIR = nil
+         cfg.variables.LUA_INCDIR = nil
+         cfg.variables.LUA_LIBDIR = nil
       end
    end
 
-   if not lua_found and args.command ~= "config" and args.command ~= "help" then
-      util.warning(tried ..
-                   "\nModules may not install with the correct configurations. " ..
-                   "You may want to configure the path prefix to your build " ..
-                   "of Lua " .. cfg.lua_version .. " using\n\n" ..
-                   "   luarocks config --local lua_dir <your-lua-prefix>\n")
+   if lua_found then
+      assert(cfg.variables.LUA)
+   else
+      -- Fallback producing _some_ Lua configuration based on the running interpreter.
+      -- Most likely won't produce correct results when running from the standalone binary,
+      -- so eventually we need to drop this and outright fail if Lua is not found
+      -- or explictly configured
+      if not cfg.variables.LUA then
+         local first_arg = get_first_arg()
+         local bin_dir = dir.dir_name(fs.absolute_name(first_arg))
+         local exe = dir.base_name(first_arg)
+         exe = exe:match("rocks") and ("lua" .. (cfg.arch:match("win") and ".exe" or "")) or exe
+         local full_path = dir.path(bin_dir, exe)
+         if util.check_lua_version(full_path, cfg.lua_version) then
+            cfg.variables.LUA = dir.path(bin_dir, exe)
+            cfg.variables.LUA_DIR = bin_dir:gsub("[/\\]bin[/\\]?$", "")
+            cfg.variables.LUA_BINDIR = bin_dir
+            cfg.variables.LUA_INCDIR = nil
+            cfg.variables.LUA_LIBDIR = nil
+         end
+      end
    end
+
    cfg.lua_found = lua_found
 
    if cfg.project_dir then
@@ -626,6 +680,11 @@ function cmd.run_command(description, commands, external_namespace, ...)
 
    if args.verbose then
       cfg.verbose = true
+      print(("-"):rep(79))
+      print("Current configuration:")
+      print(("-"):rep(79))
+      print(config.to_string(cfg))
+      print(("-"):rep(79))
       fs.verbose()
    end
 
@@ -668,10 +727,48 @@ function cmd.run_command(description, commands, external_namespace, ...)
       os.exit(cmd.errorcodes.OK)
    end
 
+   if not cfg.variables["LUA"] and args.command ~= "config" and args.command ~= "help" then
+      local flag = (not cfg.project_tree)
+                   and "--local "
+                   or ""
+      if args.lua_version then
+         flag = "--lua-version=" .. args.lua_version .. " " .. flag
+      end
+      die((tried or "Lua interpreter not found.") ..
+         "\nPlease set your Lua interpreter with:\n\n" ..
+         "   luarocks " .. flag.. "config variables.LUA " .. lua_example .. "\n")
+   end
+
    local cmd_mod = cmd_modules[args.command]
+
+   local lock
+   if cmd_mod.needs_lock and cmd_mod.needs_lock(args) then
+      local ok, err = fs.check_command_permissions(args)
+      if not ok then
+         die(err, cmd.errorcodes.PERMISSIONDENIED)
+      end
+
+      lock, err = fs.lock_access(path.root_dir(cfg.root_dir), args.force_lock)
+      if not lock then
+         err = args.force_lock
+               and ("failed to force the lock" .. (err and ": " .. err or ""))
+               or  (err and err ~= "File exists")
+                   and err
+                   or  "try --force-lock to overwrite the lock"
+
+         die("command '" .. args.command .. "' " ..
+             "requires exclusive write access to " .. path.root_dir(cfg.root_dir) .. " - " ..
+             err, cmd.errorcodes.LOCK)
+      end
+   end
+
    local call_ok, ok, err, exitcode = xpcall(function()
       return cmd_mod.command(args)
    end, error_handler)
+
+   if lock then
+      fs.unlock_access(lock)
+   end
 
    if not call_ok then
       die(ok, cmd.errorcodes.CRASH)

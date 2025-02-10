@@ -4,6 +4,8 @@ local dir = {}
 local require = nil
 --------------------------------------------------------------------------------
 
+local dir_sep = package.config:sub(1, 1)
+
 local function unquote(c)
    local first, last = c:sub(1,1), c:sub(-1)
    if (first == '"' and last == '"') or
@@ -30,7 +32,7 @@ function dir.path(...)
    for i, c in ipairs(t) do
       t[i] = unquote(c)
    end
-   return (table.concat(t, "/"):gsub("([^:])/+", "%1/"):gsub("^/+", "/"):gsub("/*$", ""))
+   return dir.normalize(table.concat(t, "/"))
 end
 
 --- Split protocol and path from an URL or local pathname.
@@ -51,8 +53,9 @@ function dir.split_url(url)
 end
 
 --- Normalize a url or local path.
--- URLs should be in the "protocol://path" format. System independent
--- forward slashes are used, removing trailing and double slashes
+-- URLs should be in the "protocol://path" format.
+-- Removes trailing and double slashes, and '.' and '..' components.
+-- for 'file' URLs, the native system's slashes are used.
 -- @param url string: an URL or a local pathname.
 -- @return string: Normalized result.
 function dir.normalize(name)
@@ -63,6 +66,7 @@ function dir.normalize(name)
    if pathname:match("^.:") then
       drive, pathname = pathname:match("^(.:)(.*)$")
    end
+   pathname = pathname .. "/"
    for piece in pathname:gmatch("(.-)/") do
       if piece == ".." then
          local prev = pieces[#pieces]
@@ -75,12 +79,18 @@ function dir.normalize(name)
          table.insert(pieces, piece)
       end
    end
-   local basename = pathname:match("[^/]+$")
-   if basename then
-      table.insert(pieces, basename)
+   if #pieces == 0 then
+      pathname = drive .. "."
+   elseif #pieces == 1 and pieces[1] == "" then
+      pathname = drive .. "/"
+   else
+      pathname = drive .. table.concat(pieces, "/")
    end
-   pathname = drive .. table.concat(pieces, "/")
-   if protocol ~= "file" then pathname = protocol .."://"..pathname end
+   if protocol ~= "file" then
+      pathname = protocol .. "://" .. pathname
+   else
+      pathname = pathname:gsub("/", dir_sep)
+   end
    return pathname
 end
 

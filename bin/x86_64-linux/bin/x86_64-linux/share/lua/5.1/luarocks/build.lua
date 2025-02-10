@@ -24,6 +24,7 @@ build.opts = util.opts_table("build.opts", {
    verify = "boolean",
    check_lua_versions = "boolean",
    pin = "boolean",
+   rebuild = "boolean",
    no_install = "boolean"
 })
 
@@ -111,35 +112,50 @@ local function process_dependencies(rockspec, opts)
       end
    end
 
-   local ok, err, errcode = deps.check_lua_incdir(rockspec.variables)
-   if not ok then
-      return nil, err, errcode
-   end
-
-   if cfg.link_lua_explicitly then
-      local ok, err, errcode = deps.check_lua_libdir(rockspec.variables)
-      if not ok then
-         return nil, err, errcode
-      end
-   end
-
    if opts.deps_mode == "none" then
       return true
    end
 
    if not opts.build_only_deps then
       if next(rockspec.build_dependencies) then
-         local ok, err, errcode = deps.fulfill_dependencies(rockspec, "build_dependencies", opts.deps_mode, opts.verify)
+
+         local user_lua_version = cfg.lua_version
+         local running_lua_version = _VERSION:sub(5)
+
+         if running_lua_version ~= user_lua_version then
+            -- Temporarily flip the user-selected Lua version,
+            -- so that we install build dependencies for the
+            -- Lua version on which the LuaRocks program is running.
+
+            -- HACK: we have to do this by flipping a bunch of
+            -- global config settings, and this list may not be complete.
+            cfg.lua_version = running_lua_version
+            cfg.lua_modules_path = cfg.lua_modules_path:gsub(user_lua_version:gsub("%.", "%%."), running_lua_version)
+            cfg.lib_modules_path = cfg.lib_modules_path:gsub(user_lua_version:gsub("%.", "%%."), running_lua_version)
+            cfg.rocks_subdir = cfg.rocks_subdir:gsub(user_lua_version:gsub("%.", "%%."), running_lua_version)
+            path.use_tree(cfg.root_dir)
+         end
+
+         local ok, err, errcode = deps.fulfill_dependencies(rockspec, "build_dependencies", "all", opts.verify)
+
+         path.add_to_package_paths(cfg.root_dir)
+
+         if running_lua_version ~= user_lua_version then
+            -- flip the settings back
+            cfg.lua_version = user_lua_version
+            cfg.lua_modules_path = cfg.lua_modules_path:gsub(running_lua_version:gsub("%.", "%%."), user_lua_version)
+            cfg.lib_modules_path = cfg.lib_modules_path:gsub(running_lua_version:gsub("%.", "%%."), user_lua_version)
+            cfg.rocks_subdir = cfg.rocks_subdir:gsub(running_lua_version:gsub("%.", "%%."), user_lua_version)
+            path.use_tree(cfg.root_dir)
+         end
+
          if err then
             return nil, err, errcode
          end
       end
    end
-   ok, err, errcode = deps.fulfill_dependencies(rockspec, "dependencies", opts.deps_mode, opts.verify)
-   if err then
-      return nil, err, errcode
-   end
-   return true
+
+   return deps.fulfill_dependencies(rockspec, "dependencies", opts.deps_mode, opts.verify)
 end
 
 local function fetch_and_change_to_source_dir(rockspec, opts)
@@ -159,8 +175,14 @@ local function fetch_and_change_to_source_dir(rockspec, opts)
       if not ok then
          return nil, err
       end
-   elseif rockspec.source.file then
-      local ok, err = fs.unpack_archive(rockspec.source.file)
+   else
+      if rockspec.source.file then
+         local ok, err = fs.unpack_archive(rockspec.source.file)
+         if not ok then
+            return nil, err
+         end
+      end
+      local ok, err = fetch.find_rockspec_source_dir(rockspec, ".")
       if not ok then
          return nil, err
       end
@@ -205,6 +227,21 @@ local function run_build_driver(rockspec, no_install)
    if not pok or type(driver) ~= "table" then
       return nil, "Failed initializing build back-end for build type '"..btype.."': "..driver
    end
+
+   if not driver.skip_lua_inc_lib_check then
+      local ok, err, errcode = deps.check_lua_incdir(rockspec.variables)
+      if not ok then
+         return nil, err, errcode
+      end
+
+      if cfg.link_lua_explicitly then
+         local ok, err, errcode = deps.check_lua_libdir(rockspec.variables)
+         if not ok then
+            return nil, err, errcode
+         end
+      end
+   end
+
    local ok, err = driver.run(rockspec, no_install)
    if not ok then
       return nil, "Build error: " .. err
@@ -260,7 +297,7 @@ do
             local ok, err = fs.make_dir(dest)
             if not ok then return nil, err end
          end
-         local ok = fs.copy(dir.path(file), dir.path(dest, filename), perms)
+         local ok = fs.copy(file, dir.path(dest, filename), perms)
          if not ok then
             return nil, "Failed copying "..file
          end

@@ -10,7 +10,7 @@ rock_manifest = {
       }
    },
    lib = {
-      ["lfs.so"] = "f150fac26ca7b21ce5eeed12de4da9b9"
+      ["lfs.so"] = "cc516b28e975a3eba6ec8cf3b7e3d187"
    },
    ["luafilesystem-1.8.0-1.rockspec"] = "272438e687d6e0d98f2422cb364d6ab6",
    tests = {

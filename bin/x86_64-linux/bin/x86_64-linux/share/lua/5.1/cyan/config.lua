@@ -1,4 +1,4 @@
-local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local pairs = _tl_compat and _tl_compat.pairs or pairs; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table
+local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local pairs = _tl_compat and _tl_compat.pairs or pairs; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table
 
 
 
@@ -8,8 +8,8 @@ local fs = require("cyan.fs")
 local sandbox = require("cyan.sandbox")
 local util = require("cyan.util")
 
-local keys, sort, from, values =
-util.tab.keys, util.tab.sort_in_place, util.tab.from, util.tab.values
+local keys, sort, from, values, ivalues =
+util.tab.keys, util.tab.sort_in_place, util.tab.from, util.tab.values, util.tab.ivalues
 
 
 
@@ -45,15 +45,10 @@ local config = {
    filename = "tlconfig.lua",
 }
 
-
-
-
-
-
 local function get_types_in_array(val, typefn)
    typefn = typefn or type
    local set = {}
-   for _, v in ipairs(val) do
+   for v in ivalues(val) do
       set[typefn(v)] = true
    end
    return sort(from(keys(set)))
@@ -63,7 +58,7 @@ local function get_array_type(val, default)
    if type(val) ~= "table" then
       return type(val)
    end
-   local ts = get_types_in_array(val)
+   local ts = get_types_in_array(val, nil)
    if #ts == 0 then
       ts[1] = default
    end
@@ -71,7 +66,7 @@ local function get_array_type(val, default)
 end
 
 local function get_map_type(val, default_key, default_value)
-   local key_types = get_types_in_array(from(keys(val)))
+   local key_types = get_types_in_array(from(keys(val)), nil)
    if #key_types == 0 then
       key_types[1] = default_key
    end
@@ -94,7 +89,6 @@ function config.is_config(c)
    local valid_keys = {
       build_dir = "string",
       source_dir = "string",
-      module_name = "string",
 
       include = "{string}",
       exclude = "{string}",
@@ -105,6 +99,7 @@ function config.is_config(c)
       global_env_def = "string",
       scripts = "{string : {string : (string | {string}) }}",
 
+      feat_arity = { ["off"] = true, ["on"] = true },
       gen_compat = { ["off"] = true, ["optional"] = true, ["required"] = true },
       gen_target = { ["5.1"] = true, ["5.3"] = true, ["5.4"] = true },
 
@@ -182,7 +177,7 @@ function config.is_config(c)
 
          return
       end
-      local as_path = fs.path.new(val)
+      local as_path = fs.path.new(val, false)
       if as_path:is_absolute() then
          table.insert(errs, string.format("Expected a non-absolute path for %s, got %s", key, as_path:to_real_path()))
       end
@@ -193,7 +188,7 @@ function config.is_config(c)
    local function verify_warnings(key)
       local arr = (c)[key]
       if arr then
-         for _, warning in ipairs(arr) do
+         for warning in ivalues(arr) do
             if not tl.warning_kinds[warning] then
                table.insert(errs, string.format("Unknown warning in %s: %q", key, warning))
             end
@@ -205,9 +200,9 @@ function config.is_config(c)
 
    if #errs > 0 then
       return nil, errs, warnings
-   else
-      return c, nil, warnings
    end
+
+   return c, nil, warnings
 end
 
 
@@ -223,7 +218,7 @@ function config.load()
    if not b then
       return nil, { ferr }, {}
    end
-   local ok, err = b:run()
+   local ok, err = b:run(nil)
    if not ok then
       return nil, { err }, {}
    end

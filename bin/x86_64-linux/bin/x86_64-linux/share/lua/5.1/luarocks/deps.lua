@@ -10,7 +10,6 @@ local fun = require("luarocks.fun")
 local util = require("luarocks.util")
 local vers = require("luarocks.core.vers")
 local queries = require("luarocks.queries")
-local builtin = require("luarocks.build.builtin")
 local deplocks = require("luarocks.deplocks")
 
 --- Generate a function that matches dep queries against the manifest,
@@ -159,7 +158,7 @@ local function rock_status(dep, get_versions)
 
    local installed, _, _, provided = match_dep(dep, get_versions)
    local installation_type = provided and "provided by VM" or "installed"
-   return installed and installed.." "..installation_type or "not installed"
+   return installed and installed.." "..installation_type..": success" or "not installed"
 end
 
 --- Check depenendencies of a package and report any missing ones.
@@ -446,7 +445,6 @@ local function check_external_dependency_at(prefix, name, ext_files, vars, dirs,
       else
          paths = { dir.path(prefix, dirdata.subdir) }
       end
-      dirdata.dir = paths[1]
       local file_or_files = ext_files[dirdata.testfile]
       if file_or_files then
          local files = {}
@@ -512,6 +510,17 @@ local function check_external_dependency_at(prefix, name, ext_files, vars, dirs,
          if not found then
             return nil, dirname, dirdata.testfile
          end
+      else
+         -- When we have a set of subdir suffixes, look for one that exists.
+         -- For these reason, we now put "lib" ahead of "" on Windows in our
+         -- default set.
+         dirdata.dir = paths[1]
+         for _, p in ipairs(paths) do
+            if fs.exists(p) then
+               dirdata.dir = p
+               break
+            end
+         end
       end
    end
 
@@ -560,6 +569,40 @@ local function check_external_dependency(name, ext_files, vars, mode, cache)
    return nil, err_dirname, err_testfile, err_files
 end
 
+function deps.autodetect_external_dependencies(build)
+   -- only applies to the 'builtin' build type
+   if not build or not build.modules then
+      return nil
+   end
+
+   local extdeps = {}
+   local any = false
+   for _, data in pairs(build.modules) do
+      if type(data) == "table" and data.libraries then
+         local libraries = data.libraries
+         if type(libraries) == "string" then
+            libraries = { libraries }
+         end
+         local incdirs = {}
+         local libdirs = {}
+         for _, lib in ipairs(libraries) do
+            local upper = lib:upper():gsub("%+", "P"):gsub("[^%w]", "_")
+            any = true
+            extdeps[upper] = { library = lib }
+            table.insert(incdirs, "$(" .. upper .. "_INCDIR)")
+            table.insert(libdirs, "$(" .. upper .. "_LIBDIR)")
+         end
+         if not data.incdirs then
+            data.incdirs = incdirs
+         end
+         if not data.libdirs then
+            data.libdirs = libdirs
+         end
+      end
+   end
+   return any and extdeps or nil
+end
+
 --- Set up path-related variables for external dependencies.
 -- For each key in the external_dependencies table in the
 -- rockspec file, four variables are created: <key>_DIR, <key>_BINDIR,
@@ -577,7 +620,7 @@ function deps.check_external_deps(rockspec, mode)
    assert(rockspec:type() == "rockspec")
 
    if not rockspec.external_dependencies then
-      rockspec.external_dependencies = builtin.autodetect_external_dependencies(rockspec.build)
+      rockspec.external_dependencies = deps.autodetect_external_dependencies(rockspec.build)
    end
    if not rockspec.external_dependencies then
       return true
@@ -609,12 +652,12 @@ end
 -- to build a transitive closure of all dependent packages.
 -- Additionally ensures that `dependencies` table of the manifest is up-to-date.
 -- @param results table: The results table being built, maps package names to versions.
--- @param manifest table: The manifest table containing dependencies.
+-- @param mdeps table: The manifest dependencies table.
 -- @param name string: Package name.
 -- @param version string: Package version.
-function deps.scan_deps(results, manifest, name, version, deps_mode)
+function deps.scan_deps(results, mdeps, name, version, deps_mode)
    assert(type(results) == "table")
-   assert(type(manifest) == "table")
+   assert(type(mdeps) == "table")
    assert(type(name) == "string" and not name:match("/"))
    assert(type(version) == "string")
 
@@ -623,16 +666,13 @@ function deps.scan_deps(results, manifest, name, version, deps_mode)
    if results[name] then
       return
    end
-   if not manifest.dependencies then manifest.dependencies = {} end
-   local md = manifest.dependencies
-   if not md[name] then md[name] = {} end
-   local mdn = md[name]
+   if not mdeps[name] then mdeps[name] = {} end
+   local mdn = mdeps[name]
    local dependencies = mdn[version]
    local rocks_provided
    if not dependencies then
       local rockspec, err = fetch.load_local_rockspec(path.rockspec_file(name, version), false)
       if not rockspec then
-         util.printerr("Couldn't load rockspec for "..name.." "..version..": "..err)
          return
       end
       dependencies = rockspec.dependencies
@@ -647,15 +687,13 @@ function deps.scan_deps(results, manifest, name, version, deps_mode)
    local matched = match_all_deps(dependencies, get_versions)
    results[name] = version
    for _, match in pairs(matched) do
-      deps.scan_deps(results, manifest, match.name, match.version, deps_mode)
+      deps.scan_deps(results, mdeps, match.name, match.version, deps_mode)
    end
 end
 
 local function lua_h_exists(d, luaver)
-   local n = tonumber(luaver)
-   local major = math.floor(n)
-   local minor = (n - major) * 10
-   local luanum = math.floor(major * 100 + minor)
+   local major, minor = luaver:match("(%d+)%.(%d+)")
+   local luanum = ("%s%02d"):format(major, tonumber(minor))
 
    local lua_h = dir.path(d, "lua.h")
    local fd = io.open(lua_h)
@@ -665,10 +703,10 @@ local function lua_h_exists(d, luaver)
       if data:match("LUA_VERSION_NUM%s*" .. tostring(luanum)) then
          return d
       end
-      return nil, "Lua header found at " .. d .. " does not match Lua version " .. luaver .. ". You may want to override this by configuring LUA_INCDIR.", "dependency", 2
+      return nil, "Lua header lua.h found at " .. d .. " does not match Lua version " .. luaver .. ". You can use `luarocks config variables.LUA_INCDIR <path>` to set the correct location.", "dependency", 2
    end
 
-   return nil, "Failed finding Lua header files. You may need to install them or configure LUA_INCDIR.", "dependency", 1
+   return nil, "Failed finding Lua header lua.h (searched at " .. d .. "). You may need to install Lua development headers. You can use `luarocks config variables.LUA_INCDIR <path>` to set the correct location.", "dependency", 1
 end
 
 local function find_lua_incdir(prefix, luaver, luajitver)
@@ -701,29 +739,43 @@ local function find_lua_incdir(prefix, luaver, luajitver)
 end
 
 function deps.check_lua_incdir(vars)
+   if vars.LUA_INCDIR_OK == true
+      then return true
+   end
+
    local ljv = util.get_luajit_version()
 
    if vars.LUA_INCDIR then
-      return lua_h_exists(vars.LUA_INCDIR, cfg.lua_version)
+      local ok, err = lua_h_exists(vars.LUA_INCDIR, cfg.lua_version)
+      if ok then
+         vars.LUA_INCDIR_OK = true
+      end
+      return ok, err
    end
 
    if vars.LUA_DIR then
       local d, err = find_lua_incdir(vars.LUA_DIR, cfg.lua_version, ljv)
       if d then
          vars.LUA_INCDIR = d
+         vars.LUA_INCDIR_OK = true
          return true
       end
       return nil, err
    end
 
-   return nil, "Failed finding Lua header files. You may need to install them or configure LUA_INCDIR.", "dependency"
+   return nil, "Failed finding Lua headers; neither LUA_DIR or LUA_INCDIR are set. You may need to install them or configure LUA_INCDIR.", "dependency"
 end
 
 function deps.check_lua_libdir(vars)
+   if vars.LUA_LIBDIR_OK == true
+      then return true
+   end
+
    local fs = require("luarocks.fs")
    local ljv = util.get_luajit_version()
 
    if vars.LUA_LIBDIR and vars.LUALIB and fs.exists(dir.path(vars.LUA_LIBDIR, vars.LUALIB)) then
+      vars.LUA_LIBDIR_OK = true
       return true
    end
 
@@ -737,10 +789,11 @@ function deps.check_lua_libdir(vars)
    }
    if ljv then
       table.insert(libnames, 1, "luajit-" .. cfg.lua_version)
+      table.insert(libnames, 2, "luajit")
    end
    local cache = {}
    local save_LUA_INCDIR = vars.LUA_INCDIR
-   local ok = check_external_dependency("LUA", { library = libnames }, vars, "build", cache)
+   local ok, _, _, errfiles = check_external_dependency("LUA", { library = libnames }, vars, "build", cache)
    vars.LUA_INCDIR = save_LUA_INCDIR
    local err
    if ok then
@@ -753,7 +806,7 @@ function deps.check_lua_libdir(vars)
             ok = txt:match("Lua " .. cfg.lua_version, 1, true)
                  or txt:match("lua" .. (cfg.lua_version:gsub("%.", "")), 1, true)
             if not ok then
-               err = "Lua library at " .. filename .. " does not match Lua version " .. cfg.lua_version .. ". You may want to override this by configuring LUA_LIBDIR."
+               err = "Lua library at " .. filename .. " does not match Lua version " .. cfg.lua_version .. ". You can use `luarocks config variables.LUA_LIBDIR <path>` to set the correct location."
             end
          end
 
@@ -763,10 +816,11 @@ function deps.check_lua_libdir(vars)
 
    if ok then
       vars.LUALIB = vars.LUA_LIBDIR_FILE
+      vars.LUA_LIBDIR_OK = true
       return true
    else
-      err = err or "Failed finding Lua library. You may need to configure LUA_LIBDIR."
-      return nil, err, "dependency"
+      err = err or "Failed finding the Lua library. You can use `luarocks config variables.LUA_LIBDIR <path>` to set the correct location."
+      return nil, err, "dependency", errfiles
    end
 end
 

@@ -1,23 +1,25 @@
-local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local io = _tl_compat and _tl_compat.io or io; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table
+local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local io = _tl_compat and _tl_compat.io or io; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table
 
 
 
 local argparse = require("argparse")
-local lfs = require("lfs")
 
 local command = require("cyan.command")
 local config = require("cyan.config")
-local cs = require("cyan.colorstring")
+local decoration = require("cyan.decoration")
 local fs = require("cyan.fs")
 local log = require("cyan.log")
+local util = require("cyan.util")
 
-local function exec(args)
-   if not args.force then
-      local found_config = fs.search_parent_dirs(lfs.currentdir(), config.filename)
-      if found_config and found_config:exists() then
-         log.err("Already in a project!\n   Found config file at ", cs.highlight(cs.colors.file, found_config:to_real_path()))
-         return 1
-      end
+local ivalues = util.tab.ivalues
+
+local function exec(args, loaded_config, starting_dir)
+   if not args.force and loaded_config.loaded_from then
+      log.err(
+      "Already in a project!\n   Found config file at ",
+      decoration.file_name(loaded_config.loaded_from:relative_to(starting_dir):to_real_path()))
+
+      return 1
    end
 
    local directory = fs.path.new(args.directory or "./", true)
@@ -25,34 +27,33 @@ local function exec(args)
    local build = fs.path.new(args.build_dir or "build", true)
 
    if source:is_absolute() then
-      log.err("Source directory should not be absolute (", cs.highlight(cs.colors.file, source:to_real_path()), ")")
+      log.err("Source directory should not be absolute (", decoration.file_name(source:to_real_path()), ")")
       return 1
    end
    if build:is_absolute() then
-      log.err("Build directory should not be absolute (", cs.highlight(cs.colors.file, build:to_real_path()), ")")
+      log.err("Build directory should not be absolute (", decoration.file_name(build:to_real_path()), ")")
       return 1
    end
 
    local function try_mkdir(p)
       if p:exists() then
          if not p:is_directory() then
-            log.err(cs.highlight(cs.colors.file, p:to_real_path()), " exists and is not a directory")
+            log.err(decoration.file_name(p:to_real_path()), " exists and is not a directory")
             return false
          end
       else
          local ok, err = p:mkdir()
          if ok then
-            log.info("Created directory ", cs.highlight(cs.colors.file, p:to_real_path()))
+            log.info("Created directory ", decoration.file_name(p:to_real_path()))
             return true
-         else
-            log.err("Unable to create directory ", cs.highlight(cs.colors.file, p:to_real_path()), ":\n   ", err)
-            return false
          end
+         log.err("Unable to create directory ", decoration.file_name(p:to_real_path()), ":\n   ", err)
+         return false
       end
       return true
    end
 
-   for _, p in ipairs({ directory, directory .. source, directory .. build }) do
+   for p in ivalues({ directory, directory .. source, directory .. build }) do
       if not try_mkdir(p) then
          return 1
       end
@@ -72,7 +73,7 @@ local function exec(args)
          return
       end
       ins(1, "%s = {\n", name)
-      for _, entry in ipairs(arr) do
+      for entry in ivalues(arr) do
          ins(2, "%q,\n", entry)
       end
       ins(1, "},\n", name)
@@ -86,12 +87,12 @@ local function exec(args)
    local config_path = (directory .. config.filename):to_real_path()
    local fh, err = io.open(config_path, "w")
    if not fh then
-      log.err("Unable to open ", cs.highlight(cs.colors.file, config_path), ":\n", err)
+      log.err("Unable to open ", decoration.file_name(config_path), ":\n", err)
       return 1
    end
    fh:write(table.concat(config_content))
    fh:close()
-   log.info("Wrote ", cs.highlight(cs.colors.file, config_path))
+   log.info("Wrote ", decoration.file_name(config_path))
 
    return 0
 end

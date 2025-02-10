@@ -1,0 +1,58 @@
+rock_manifest = {
+   bin = {
+      cyan = "cd31d840b87a4f8f8f2221a01391491c"
+   },
+   ["cyan-0.4.0-1.rockspec"] = "cc5862a7deaffe9a2f2661c5e75373e4",
+   doc = {
+      ["CHANGELOG.md"] = "4fcf2b6db41609ae338ddf9801f42c34",
+      ["CODE_OF_CONDUCT.md"] = "2966777e5e468833d268e8c2825debab",
+      LICENSE = "f7dd128f07b1721a9e9ef0d2f038e9ba",
+      ["README.md"] = "7f662c96c18d5e296faee7854e188f50"
+   },
+   lua = {
+      cyan = {
+         ["cli.lua"] = "5a7f53d955e64033937ee9a77dbcf7cd",
+         ["cli.tl"] = "5fe296d893a8b335099746f700875a8e",
+         ["command.lua"] = "d7338c390b37fc9dc70bb39a13c8976a",
+         ["command.tl"] = "1c4c16a9f3bb2e46619d55806d5c8005",
+         commands = {
+            ["build.lua"] = "153cf33d33597532fcc61fa4ec7f8106",
+            ["build.tl"] = "302f450d6a91ed96ed979e3593986e83",
+            ["check-gen.lua"] = "a0f18c914c481fb81a78bfe9202c5fc5",
+            ["check-gen.tl"] = "5b08485b577cf151bb72dccb843ea102",
+            ["initialize.lua"] = "2a43e895e8298b52ed8672c02d70d5d6",
+            ["initialize.tl"] = "34bb20b24fffb51f61f696ddc326525e",
+            ["run.lua"] = "e59511f12f2ac5406389d1731f7fdb9c",
+            ["run.tl"] = "c4a90ddee575faaad775aaba082250da",
+            ["warnings.lua"] = "dd64877ed2d476d3f7315841c12dc74c",
+            ["warnings.tl"] = "34a71651b702b97e5b3728d3fbeeafed"
+         },
+         ["config.lua"] = "a2be218b9ce50e914e0adbeffdb613b2",
+         ["config.tl"] = "2d22bbed26bc3413f19f940f2998058d",
+         ["decoration.lua"] = "4250d6444ce10b2af5da7e37da94af49",
+         ["decoration.tl"] = "da76337fcf63935fbe03c0b1ed45f8e3",
+         fs = {
+            ["init.lua"] = "4ad91537750f0c67811836ef21880598",
+            ["init.tl"] = "5577dcfd8e13eb8aa670c8cca96bf968",
+            ["path.lua"] = "3d709f15aafb9ce029e4b9b7f4e10b50",
+            ["path.tl"] = "9fe9a5f1ff7da22b746567e3f0b1c885"
+         },
+         ["graph.lua"] = "632117f7ce8b7af360c0333bd0c10fce",
+         ["graph.tl"] = "480f7873bd0c3b15b2def2e9ceeb2e7b",
+         ["interaction.lua"] = "848013213b69e644edb83231d999a77d",
+         ["interaction.tl"] = "f6f56ddfbe510e572cef1dbd1990e629",
+         ["log.lua"] = "fd33fb20c0137506b592bb23775232ef",
+         ["log.tl"] = "771aed72d269176d0932c6d1810c48fd",
+         ["meta.lua"] = "af7782c3936e28175a07f8cfc9317b9d",
+         ["meta.tl"] = "a5f9dfcddb51626e03d2a05d69954c2d",
+         ["sandbox.lua"] = "f75de86d6d148006154bbcaac933521d",
+         ["sandbox.tl"] = "499eec58273f74d57230bdbdacc22e3f",
+         ["script.lua"] = "289ac822063e5586871e307c8ae18ee4",
+         ["script.tl"] = "6d791aaa87a4077fea94ac21af2f0a09",
+         ["tlcommon.lua"] = "c8ee6aaa7cd5ad2c717ab64be84beab7",
+         ["tlcommon.tl"] = "1fa5d34c445c69ede664966d30b85013",
+         ["util.lua"] = "0abeefd1f8710ed2b8f6404d37c710c9",
+         ["util.tl"] = "6fcbdb694fe4c9387268b6fb91f07062"
+      }
+   }
+}

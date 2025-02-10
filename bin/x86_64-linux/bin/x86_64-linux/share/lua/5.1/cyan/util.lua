@@ -1,4 +1,4 @@
-local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local pairs = _tl_compat and _tl_compat.pairs or pairs; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table
+local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = true, require('compat53.module'); if p then _tl_compat = m end end; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local pairs = _tl_compat and _tl_compat.pairs or pairs; local string = _tl_compat and _tl_compat.string or string; local table = _tl_compat and _tl_compat.table or table; local _tl_table_pack = table.pack or function(...) return { n = select("#", ...), ... } end; local _tl_table_unpack = unpack or table.unpack
 
 
 
@@ -59,7 +59,7 @@ end
 
 function tab.set(lst)
    local s = {}
-   for _, v in ipairs(lst) do
+   for v in tab.ivalues(lst) do
       s[v] = true
    end
    return s
@@ -81,11 +81,8 @@ function tab.map_ipairs(t, fn)
    local i = 0
    return function()
       i = i + 1
-      if not t[i] then
-         return
-      else
-         return i, fn(t[i])
-      end
+      if not t[i] then return end
+      return i, fn(t[i])
    end
 end
 
@@ -109,7 +106,7 @@ end
 function tab.filter(t, pred)
    local pass = {}
    local fail = {}
-   for _, v in ipairs(t) do
+   for v in tab.ivalues(t) do
       table.insert(pred(v) and pass or fail, v)
    end
    return pass, fail
@@ -121,10 +118,10 @@ function tab.merge_list(a, b)
    local new_list = {}
    a = a or {}
    b = b or {}
-   for _, v in ipairs(a) do
+   for v in tab.ivalues(a) do
       table.insert(new_list, v)
    end
-   for _, v in ipairs(b) do
+   for v in tab.ivalues(b) do
       table.insert(new_list, v)
    end
    return new_list
@@ -133,12 +130,25 @@ end
 
 
 function tab.contains(t, val)
-   for _, v in ipairs(t) do
+   for v in tab.ivalues(t) do
       if val == v then
          return true
       end
    end
    return false
+end
+
+
+
+
+
+
+function tab.ensure_scalar_array(source)
+   if type(source) == "table" then
+      return source
+   end
+
+   return { source }
 end
 
 
@@ -202,9 +212,24 @@ local function xor(a, b)
    (not a and b)
 end
 
+
+
+
+
+
+local function peek(iter, ...)
+   local iter_state = _tl_table_pack(iter(...))
+   return function()
+      local prev = iter_state[1]
+      iter_state = _tl_table_pack(iter(_tl_table_unpack(iter_state)))
+      return prev, iter_state[1]
+   end
+end
+
 return {
    str = str,
    tab = tab,
 
    xor = xor,
+   peek = peek,
 }

@@ -15,7 +15,7 @@ local build = require("luarocks.build")
 local writer = require("luarocks.manif.writer")
 local search = require("luarocks.search")
 local make = require("luarocks.cmd.make")
-local cmd = require("luarocks.cmd")
+local repos = require("luarocks.repos")
 
 function cmd_build.add_to_parser(parser)
    local cmd = parser:command("build", "Build and install a rock, compiling its C parts if any.\n"..  -- luacheck: ignore 431
@@ -93,6 +93,15 @@ local function do_build(name, namespace, version, opts)
       end
    end
 
+   name, version = path.parse_name(url)
+   if name and repos.is_installed(name, version) then
+      if not opts.rebuild then
+         util.printout(name .. " " .. version .. " is already installed in " .. path.root_dir(cfg.root_dir))
+         util.printout("Use --force to reinstall.")
+         return name, version, "skip"
+      end
+   end
+
    if url:match("%.rockspec$") then
       local rockspec, err = fetch.load_rockspec(url, nil, opts.verify)
       if not rockspec then
@@ -129,6 +138,7 @@ function cmd_build.command(args)
       verify = not not args.verify,
       check_lua_versions = not not args.check_lua_versions,
       pin = not not args.pin,
+      rebuild = not not (args.force or args.force_fast),
       no_install = false
    })
 
@@ -146,14 +156,12 @@ function cmd_build.command(args)
       end)
    end
 
-   local ok, err = fs.check_command_permissions(args)
-   if not ok then
-      return nil, err, cmd.errorcodes.PERMISSIONDENIED
-   end
-
-   local name, version = do_build(args.rock, args.namespace, args.version, opts)
+   local name, version, skip = do_build(args.rock, args.namespace, args.version, opts)
    if not name then
       return nil, version
+   end
+   if skip == "skip" then
+      return name, version
    end
 
    if args.no_doc then
@@ -178,6 +186,13 @@ function cmd_build.command(args)
       writer.check_dependencies(nil, deps.get_deps_mode(args))
    end
    return name, version
+end
+
+cmd_build.needs_lock = function(args)
+   if args.pack_binary_rock then
+      return false
+   end
+   return true
 end
 
 return cmd_build
