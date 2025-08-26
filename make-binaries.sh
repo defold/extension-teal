@@ -3,7 +3,7 @@
 set -o errexit
 # set -o xtrace
 
-CYAN_BUILDER_VERSION="v1.71"
+CYAN_BUILDER_VERSION="v1.78"
 
 if [ -d dist ]; then
   rm -r dist
@@ -23,24 +23,10 @@ do
 
 
   if [ "$platform_id" = "x86_64-win32" ]; then
-    sed -Ei '' '
-      3c\
-set SCRIPT_DIR=%~dp0..\
-set "SCRIPT_DIR_ESC=%SCRIPT_DIR:\\=\\\\%"
-      s@[A-Z]:\\\\([^; ]*\\\\)?Roaming\\\\luarocks\\\\@%SCRIPT_DIR_ESC%\\\\@g;
-      s@[A-Z]:\\([^; ]*\\)?Roaming\\luarocks\\@%SCRIPT_DIR%\\@g;
-      s@[A-Z]:\\([^; ]*\\)?.lua\\@%SCRIPT_DIR%\\@g;
-    ' "dist/$platform_id/bin/$platform_id/bin/cyan.bat"
+    sed -Ei '' -f fix-windows-paths.sed "dist/$platform_id/bin/$platform_id/bin/cyan.bat"
   else
-    sed -Ei '' '
-      s/\"/\\\"/g;
-      s/\\\"\$@\\\"/"$@"/g;
-      s/'"'"'/"/g;
-      s@/[^; ]*\.luarocks/@\$SCRIPT_DIR/@g;
-      s@/[^; ]*\.lua/@\$SCRIPT_DIR/@g;
-      1a\
-SCRIPT_DIR="$(dirname -- "$(readlink -f -- "$0")")/.."
-    ' "dist/$platform_id/bin/$platform_id/bin/cyan"
+    sed -Ei '' -f fix-unix-paths.sed "dist/$platform_id/bin/$platform_id/bin/cyan"
+    sed -Ei '' -f fix-unix-paths.sed "dist/$platform_id/bin/$platform_id/bin/teal-language-server"
   fi
 
   rm "teal/plugins/$platform_id.zip"
