@@ -1,40 +1,52 @@
 #!/usr/bin/env sh
 
 set -o errexit
+# set -o xtrace
 
-wget -q https://github.com/defold/lua-language-server/releases/download/v0.0.6/release.zip
+CYAN_BUILDER_VERSION="v1.71"
 
+if [ -d dist ]; then
+  rm -r dist
+fi
 mkdir -p dist
-unzip -o -q release.zip "lsp-lua-language-server/plugins/*.zip" -d dist
 
-pairs="Linux-X64-cyan:x86_64-linux macOS-ARM64-cyan:arm64-macos macOS-X64-cyan:x86_64-macos Windows-X64-cyan:x86_64-win32"
+pairs="Windows-X64-cyan:x86_64-win32 macOS-ARM64-cyan:arm64-macos Linux-X64-cyan:x86_64-linux macOS-X64-cyan:x86_64-macos"
 
 for pair in $pairs
 do
-   cyan_id="${pair%%:*}"
-   platform_id="${pair##*:}"
-   case "$platform_id" in
-     *win32*) script_ext=".bat" ;;
-     *) script_ext="" ;;
-   esac
-   mkdir -p "dist/$platform_id/bin/$platform_id"
-   unzip -o -q "$cyan_id.zip" "share/lua/5.1/*.lua" -d "dist/$platform_id/bin/$platform_id"
-   mkdir -p "dist/$platform_id/bin/$platform_id/script"
+  cyan_id="${pair%%:*}"
+  platform_id="${pair##*:}"
+  wget -q -O "dist/$cyan_id.zip" https://github.com/vlaaad/cyan-builder/releases/download/$CYAN_BUILDER_VERSION/$cyan_id.zip
+  mkdir -p "dist/$platform_id/bin/$platform_id"
+  unzip -o -q "dist/$cyan_id.zip" -d "dist/$platform_id/bin/$platform_id"
+  find "dist/$platform_id/bin/$platform_id" -type f -name '*.tl' -delete
 
-   ls -1 "dist/$platform_id/bin/$platform_id/share/lua/5.1/" | xargs -I '{}' mv "dist/$platform_id/bin/$platform_id/share/lua/5.1/{}" "dist/$platform_id/bin/$platform_id/script/"
-   rm -r "dist/$platform_id/bin/$platform_id/share"
-   unzip -o -q "dist/lsp-lua-language-server/plugins/$platform_id.zip" "bin/$platform_id/bin/*" -d "dist/$platform_id"
-   cp "cyan$script_ext" "dist/$platform_id/bin/$platform_id/bin"
-   echo "require(\"cyan.cli\")" > "dist/$platform_id/bin/$platform_id/main.lua"
-   chmod +x "dist/$platform_id/bin/$platform_id/bin/cyan$script_ext"
 
-   rm "teal/plugins/$platform_id.zip"
-   cd "dist/$platform_id"
-   zip -r -q "../../teal/plugins/$platform_id.zip" "bin"
-   cd "../.."
+  if [ "$platform_id" = "x86_64-win32" ]; then
+    sed -Ei '' '
+      3c\
+set SCRIPT_DIR=%~dp0..\
+set "SCRIPT_DIR_ESC=%SCRIPT_DIR:\\=\\\\%"
+      s@[A-Z]:\\\\([^; ]*\\\\)?Roaming\\\\luarocks\\\\@%SCRIPT_DIR_ESC%\\\\@g;
+      s@[A-Z]:\\([^; ]*\\)?Roaming\\luarocks\\@%SCRIPT_DIR%\\@g;
+      s@[A-Z]:\\([^; ]*\\)?.lua\\@%SCRIPT_DIR%\\@g;
+    ' "dist/$platform_id/bin/$platform_id/bin/cyan.bat"
+  else
+    sed -Ei '' '
+      s/\"/\\\"/g;
+      s/\\\"\$@\\\"/"$@"/g;
+      s/'"'"'/"/g;
+      s@/[^; ]*\.luarocks/@\$SCRIPT_DIR/@g;
+      s@/[^; ]*\.lua/@\$SCRIPT_DIR/@g;
+      1a\
+SCRIPT_DIR="$(dirname -- "$(readlink -f -- "$0")")/.."
+    ' "dist/$platform_id/bin/$platform_id/bin/cyan"
+  fi
+
+  rm "teal/plugins/$platform_id.zip"
+  cd "dist/$platform_id"
+  zip -r -q "../../teal/plugins/$platform_id.zip" "bin"
+  cd "../.."
 done
-
-rm release.zip
-rm -r dist
 
 echo "Making binaries: done"
