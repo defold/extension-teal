@@ -22,17 +22,17 @@ public class TealTranspiler implements ILuaTranspiler {
     //      Error 2 type errors in main/baz.tl
     public static final Pattern SEVERITY_AND_PATH = Pattern.compile("^\\s*\\w*\\s*\\d+.+(warning|error)s? in (.+)$");
     // Find line number in strings like:
-    //        ...    1 | local not_an_int: int = "asd"
-    //        ...    9 | local py = "1";
-    public static final Pattern LINE = Pattern.compile("^\\s*\\.{3}\\s*(\\d+)\\s*\\|");
+    //        ...    1 │ local not_an_int: int = "asd"
+    //        ...    9 │ local py = "1";
+    public static final Pattern LINE = Pattern.compile("^\\s*\\.{3}\\s*(\\d+)\\s*│");
     // Match line that highlights the issue in a line above like:
-    //        ...      |       ^^
-    //        ...      |       ^^^^^
-    public static final Pattern ERROR_UNDERLINE = Pattern.compile("^\\s*\\.{3}\\s*\\|\\s*\\^+\\s*$");
+    //        ...      │       ^^
+    //        ...      │       ^^^^^
+    public static final Pattern ERROR_UNDERLINE = Pattern.compile("^\\s*\\.{3}\\s*│\\s*\\^+\\s*$");
     // Match issue message like:
-    //        ...      | unknown type int
-    //        ...      | in local declaration: foo: expected an array: at index 2: got integer, expected string
-    public static final Pattern MESSAGE = Pattern.compile("^\\s*\\.{3}\\s*\\|\\s*(.+)$");
+    //        ...      │ unknown type int
+    //        ...      │ in local declaration: foo: expected an array: at index 2: got integer, expected string
+    public static final Pattern MESSAGE = Pattern.compile("^\\s*\\.{3}\\s*│\\s*(.+)$");
 
     @Override
     public String getBuildFileResourcePath() {

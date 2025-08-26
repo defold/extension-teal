@@ -1,0 +1,16 @@
+local M = {}
+
+function M.get_language_servers()
+    local path = "build/plugins/teal/plugins/bin/" .. editor.platform ..  "/bin/teal-language-server"
+    if editor.platform:sub(-#"win32") == "win32" then
+        path = path .. ".bat"
+    end
+    return {
+        {
+            languages = {"teal"},
+            command = {path}
+        }
+    }
+end
+
+return M
