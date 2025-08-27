@@ -3,7 +3,7 @@
 set -o errexit
 # set -o xtrace
 
-CYAN_BUILDER_VERSION="v1.78"
+CYAN_BUILDER_VERSION="v1.79"
 
 if [ -d dist ]; then
   rm -r dist
