@@ -16,3 +16,4 @@ bob.jar
 *.tokens
 *.class
 /dist
+/.editor_settings

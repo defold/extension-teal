@@ -1,0 +1,5 @@
+local s = require("main.test")
+
+function init(self)
+    label.set_text("#label", s)
+end
