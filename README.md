@@ -14,7 +14,9 @@
    return {
 	    gen_target = "5.1",
 	    gen_compat = "off",
-	    include = {"**/*.tl"}
+	    include = {"**/*.tl"},
+		source_dir = "./",
+		build_dir = "build/tr/TealTranspiler",
    }
    ```
 4. Create `.tl` files — those can be required from scripts and lua modules as if they were `.lua` files 
