@@ -281,6 +281,7 @@
   (let [language "teal"
         view-opts {:code {:grammar grammar}}]
     (g/transact
+      {:undoable false}
       (concat
         (g/update-property workspace :resource-types update "tl" assoc
                            :language language
