@@ -36,8 +36,7 @@
                                 \> "type.arguments.teal"}}
    :completion-trigger-characters #{"."}
    :ignored-completion-trigger-characters #{"{" "," ":" "<" ">"}
-   :patterns [
-              ;; Pragmas
+   :patterns [;; Pragmas
               {:begin #"--#pragma"
                :begin-captures {0 {:name "keyword.control.directive.pragma.teal"}}
                :end #".*$"
