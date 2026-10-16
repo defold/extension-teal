@@ -1,3 +1,3 @@
-local s: string = "Hello from teal"
+local s: string = require("main.greeting")
 
 return s
