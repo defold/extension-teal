@@ -50,8 +50,12 @@ public class TealTranspiler implements ILuaTranspiler {
         Platform platform = Platform.getHostPlatform();
         String exeSuffix = "win32".equals(platform.getOs()) ? ".bat" : "";
         String cmd = new File(pluginDir, "teal/plugins/bin/" + platform.getPair() + "/bin/cyan" + exeSuffix).toString();
+        // Cyan needs forward slashes in include paths to resolve imports on Windows.
         Process process = new ProcessBuilder(
-                cmd, "build", "--build-dir", outputDir.toString(), "--prune", "--include-dir", sourceDir.toString())
+                cmd, "build",
+                "--build-dir", outputDir.toString(),
+                "--prune",
+                "--include-dir", sourceDir.toString().replace('\\', '/'))
                 .directory(sourceDir)
                 .redirectErrorStream(true)
                 .start();
