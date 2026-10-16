@@ -50,12 +50,12 @@ public class TealTranspiler implements ILuaTranspiler {
         Platform platform = Platform.getHostPlatform();
         String exeSuffix = "win32".equals(platform.getOs()) ? ".bat" : "";
         String cmd = new File(pluginDir, "teal/plugins/bin/" + platform.getPair() + "/bin/cyan" + exeSuffix).toString();
-        // Cyan expects forward slashes in path arguments on every platform.
+        // Cyan expects paths relative to its working directory, with forward slashes.
         Process process = new ProcessBuilder(
                 cmd, "build",
-                "--build-dir", outputDir.toString().replace('\\', '/'),
+                "--build-dir", sourceDir.toPath().toAbsolutePath().relativize(outputDir.toPath().toAbsolutePath()).toString().replace('\\', '/'),
                 "--prune",
-                "--include-dir", sourceDir.toString().replace('\\', '/'))
+                "--include-dir", ".")
                 .directory(sourceDir)
                 .redirectErrorStream(true)
                 .start();
