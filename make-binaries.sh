@@ -24,6 +24,8 @@ do
 
   if [ "$platform_id" = "x86_64-win32" ]; then
     sed -Ei '' -f fix-windows-paths.sed "dist/$platform_id/bin/$platform_id/bin/cyan.bat"
+    # Cyan must keep the trailing separator when checking a Windows drive root.
+    sed -i '' -f fix-windows-cyan-paths.sed "dist/$platform_id/bin/$platform_id/share/lua/5.4/cyan/fs/path.lua"
   else
     sed -Ei '' -f fix-unix-paths.sed "dist/$platform_id/bin/$platform_id/bin/cyan"
     sed -Ei '' -f fix-unix-paths.sed "dist/$platform_id/bin/$platform_id/bin/teal-language-server"
