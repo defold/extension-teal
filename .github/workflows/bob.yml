@@ -77,3 +77,74 @@ jobs:
           for module in ('mathutils', 'vector'):
               assert (output / (module + '.luac')).is_file(), 'Missing compiled module: ' + module
           PY
+      - name: Compare original and proposed plugins across Windows drives
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import shutil
+          import subprocess
+
+          temp = Path(os.environ['RUNNER_TEMP'])
+          bob = temp / 'bob.jar'
+          project = temp / 'teal-project'
+          sources = Path(os.environ['USERPROFILE']) / 'AppData/Local/Temp' / ('teal-drive-probe-' + os.environ['GITHUB_RUN_ID'])
+          assert sources.drive.lower() != temp.drive.lower(), (sources, temp)
+          fixture = Path('defold-fixture/editor/test/resources/transpile_teal_project')
+          for name in ('single', 'nested'):
+              source = sources / name
+              source.mkdir(parents=True)
+              shutil.copyfile(fixture / 'tlconfig.lua', source / 'tlconfig.lua')
+              shutil.copytree(fixture / 'modules', source / 'modules')
+              if name == 'single':
+                  for file in (source / 'modules').glob('*.tl'):
+                      if file.name != 'vector.tl':
+                          file.unlink()
+
+          probe = temp / 'TealDriveProbe.java'
+          probe.write_text('''
+          import com.defold.extension.pipeline.TealTranspiler;
+          import com.defold.extension.pipeline.ILuaTranspiler;
+          import java.io.File;
+          import java.nio.file.Files;
+          public class TealDriveProbe {
+              public static void main(String[] args) throws Exception {
+                  File output = new File(args[2]);
+                  Files.createDirectories(output.toPath());
+                  var issues = new TealTranspiler().transpile(new File(args[0]), new File(args[1]), output);
+                  for (var issue : issues) System.out.println(issue.severity + ": " + issue.message);
+                  if (issues.stream().anyMatch(i -> i.severity == ILuaTranspiler.Severity.ERROR)) System.exit(1);
+                  if (!Files.isRegularFile(output.toPath().resolve("modules/vector.lua"))) throw new AssertionError("Missing vector.lua");
+              }
+          }
+          ''')
+          candidate_source = temp / 'candidate/TealTranspiler.java'
+          candidate_source.parent.mkdir()
+          source = Path('src/main/java/com/defold/extension/pipeline/TealTranspiler.java').read_text()
+          before = 'sourceDir.toPath().toAbsolutePath().relativize(outputDir.toPath().toAbsolutePath()).toString().replace'
+          line = next(line for line in source.splitlines() if '"--build-dir"' in line)
+          assert before in line, line
+          candidate_source.write_text(source.replace(line, '                "--build-dir", outputDir.toString(),'))
+          classes = temp / 'candidate/classes'
+          subprocess.run(['javac', '--release', '21', '-cp', str(bob), '-d', str(classes), str(candidate_source)], check=True)
+          candidate = temp / 'candidate.jar'
+          subprocess.run(['jar', '--create', '--file', str(candidate), '-C', str(classes), '.'], check=True)
+
+          cases = [
+              ('original-single', temp / 'extension-teal-before.jar', sources / 'single'),
+              ('original-nested', temp / 'extension-teal-before.jar', sources / 'nested'),
+              ('relative-output-nested', Path('teal/plugins/share/extension-teal.jar'), sources / 'nested'),
+              ('source-normalized-only-nested', candidate, sources / 'nested'),
+              ('source-normalized-only-same-drive', candidate, project),
+          ]
+          results = {}
+          for label, plugin, source in cases:
+              output = temp / 'teal-drive-probe-output' / label
+              command = ['java', '--class-path', os.pathsep.join((str(plugin.resolve()), str(bob))), str(probe), str(project / 'build/plugins'), str(source), str(output)]
+              result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+              print('\nCASE:', label, 'SOURCE:', source, 'OUTPUT:', output, 'EXIT:', result.returncode, flush=True)
+              print(result.stdout, flush=True)
+              results[label] = result.returncode
+          assert results['source-normalized-only-nested'] == 0, results
+          assert results['source-normalized-only-same-drive'] == 0, results
+          PY
