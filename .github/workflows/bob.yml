@@ -57,6 +57,30 @@ jobs:
           fi
           cat "$RUNNER_TEMP/teal-before.log"
           grep -F 'Unable to create parent dirs' "$RUNNER_TEMP/teal-before.log"
+      - name: Inspect Cyan output directory handling
+        run: |
+          python - <<'PYTHON'
+          import os
+          from pathlib import Path
+          import subprocess
+
+          project = Path(os.environ['RUNNER_TEMP']) / 'teal-project'
+          runtime = project / 'build/plugins/teal/plugins/bin/x86_64-win32'
+          env = dict(os.environ)
+          env['LUA_PATH'] = runtime.as_posix() + '/share/lua/5.4/?.lua;' + runtime.as_posix() + '/share/lua/5.4/?/init.lua;;'
+          env['LUA_CPATH'] = runtime.as_posix() + '/lib/lua/5.4/?.dll;;'
+          subprocess.run([str(runtime / 'bin/lua.exe'), '-e', r"""
+          local lfs = require('lfs')
+          local path = require('cyan.fs.path')
+          for _, s in ipairs({'D:', 'D:/', 'D:/a', lfs.currentdir()}) do
+              print('attributes', s, lfs.attributes(s, 'mode'))
+          end
+          local output = path.new((lfs.currentdir():gsub('\\', '/')) .. '/build/tr/TealTranspiler/modules/mathutils.lua')
+          for p in output:ancestors() do
+              print('ancestor', p:to_real_path(), p:exists(), p:is_directory())
+          end
+          """], cwd=project, env=env, check=True)
+          PYTHON
       - name: Build the same project with normalized Cyan paths
         run: |
           python - <<'PY'
